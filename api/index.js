@@ -476,7 +476,7 @@ function sortSubjectsByOrder(contributions) {
     });
 }
 
-function prepareWordData(studentName, className, studentBirthdate, originalContributions) {
+function prepareWordData(studentName, className, studentBirthdate, originalContributions, semester = 1) {
     // Utiliser le nom complet pour le document Word
     const fullName = getFullStudentName(studentName);
     
@@ -530,6 +530,7 @@ function prepareWordData(studentName, className, studentBirthdate, originalContr
         studentSelected: fullName,
         className: className || "",
         studentBirthdate: studentBirthdate ? new Date(studentBirthdate).toLocaleDateString('fr-FR') : "",
+        semester: semester ? semester.toString() : "1",
         atlSummaryTable: [],
         contributionsBySubject: []
     };
@@ -567,9 +568,9 @@ function prepareWordData(studentName, className, studentBirthdate, originalContr
     return documentData;
 }
 
-async function createWordDocumentBuffer(studentName, className, studentBirthdate, imageBuffer, originalContributions) {
+async function createWordDocumentBuffer(studentName, className, studentBirthdate, imageBuffer, originalContributions, semester = 1) {
     // CORRECTION: Toutes les classes (PEI et DP) utilisent le MÊME modèle
-    console.log(`🎓 Class: ${className} - Utilisation du modèle PEI unique`);
+    console.log(`🎓 Class: ${className} - Utilisation du modèle PEI unique - Semestre ${semester}`);
     
     try {
         // Utiliser l'URL du template depuis les variables d'environnement
@@ -594,37 +595,59 @@ async function createWordDocumentBuffer(studentName, className, studentBirthdate
         const zip = new PizZip(templateContent);
         console.log(`✅ PizZip created successfully`);
         
-        // CORRECTION CRITIQUE: Gestion de l'image avec DocxTemplater
-        // Le module ImageModule doit TOUJOURS être présent, même sans image
-        // Pour éviter l'erreur, on configure le module pour gérer les images vides
+        console.log(`🔄 Preparing Word data for ${studentName}...`);
+        const documentData = prepareWordData(studentName, className, studentBirthdate, originalContributions, semester);
         
-        // SOLUTION DÉFINITIVE: Ne jamais utiliser le module ImageModule
-        // car il corrompt le fichier Word même avec des images valides
-        // À la place, on remplace {image} par un texte placeholder
-        
+        // Gestion de l'image avec ImageModule
+        // Le template utilise {%image} pour l'insertion d'image
         let docTemplaterOptions = {
             paragraphLoop: true,
             linebreaks: true,
             nullGetter: (part) => {
-                // Retourner une chaîne vide pour toutes les valeurs nulles
                 return '';
             }
         };
         
+        // Configurer l'ImageModule si une image est disponible
+        if (imageBuffer && imageBuffer.length > 0) {
+            console.log(`📷 Image disponible (${imageBuffer.length} bytes) - utilisation de ImageModule`);
+            try {
+                const imageModuleOpts = {
+                    centered: false,
+                    fileType: 'docx',
+                    getImage: function(tagValue) {
+                        // tagValue = la valeur passée au tag {%image}
+                        // On retourne directement le buffer de l'image
+                        if (tagValue === '__STUDENT_PHOTO__') {
+                            return imageBuffer;
+                        }
+                        return imageBuffer; // Par défaut retourner l'image de l'élève
+                    },
+                    getSize: function(img) {
+                        // Taille fixe: 60x60 pixels (correspond au resize dans fetchImage)
+                        return [60, 60];
+                    }
+                };
+                const imageModule = new ImageModule(imageModuleOpts);
+                docTemplaterOptions.modules = [imageModule];
+                console.log(`✅ ImageModule configuré avec succès`);
+            } catch (imgErr) {
+                console.warn(`⚠️ Impossible de configurer ImageModule: ${imgErr.message} - utilisation du placeholder texte`);
+            }
+        } else {
+            console.log(`📷 Pas d'image disponible - le tag {image} sera remplacé par du texte vide`);
+        }
+        
         const doc = new DocxTemplater(zip, docTemplaterOptions);
         
-        console.log(`🔄 Preparing Word data for ${studentName}...`);
-        const documentData = prepareWordData(studentName, className, studentBirthdate, originalContributions);
-        
-        // SOLUTION DÉFINITIVE: Remplacer {image} par un placeholder texte
-        // car ImageModule corrompt le fichier Word
+        // Préparer les données avec l'image
         const dataToRender = {
             ...documentData,
-            image: imageBuffer && imageBuffer.length > 0 ? '[PHOTO]' : '[PAS DE PHOTO]'
+            // Pour le tag {image} (texte) : vide si on a une vraie image via ImageModule, sinon vide aussi
+            image: (imageBuffer && imageBuffer.length > 0) ? '__STUDENT_PHOTO__' : ''
         };
         
-        console.log(`📷 Image status: ${dataToRender.image}`);
-        
+        console.log(`📷 Image tag value: "${dataToRender.image ? 'set' : 'empty'}"`);
         console.log(`🔄 Rendering Word document for ${studentName}...`);
         console.log(`   Data keys: ${Object.keys(dataToRender).join(', ')}`);
         doc.render(dataToRender);
@@ -640,8 +663,36 @@ async function createWordDocumentBuffer(studentName, className, studentBirthdate
         return buffer;
     } catch (error) {
         console.error(`Error creating Word buffer for ${studentName}:`, error.message);
+        // Si l'erreur est liée à ImageModule, réessayer sans image
+        if (error.message && (error.message.includes('image') || error.message.includes('Image') || error.message.includes('tag'))) {
+            console.warn(`⚠️ Erreur ImageModule détectée, génération sans image...`);
+            return await createWordDocumentBufferNoImage(studentName, className, studentBirthdate, originalContributions);
+        }
         throw error;
     }
+}
+
+// Fallback: génération sans image si ImageModule échoue
+async function createWordDocumentBufferNoImage(studentName, className, studentBirthdate, originalContributions) {
+    const TEMPLATE_URL = process.env.TEMPLATE_URL;
+    if (!TEMPLATE_URL) throw new Error('TEMPLATE_URL not found');
+    
+    const templateResponse = await fetch(TEMPLATE_URL);
+    if (!templateResponse.ok) throw new Error(`Failed to fetch template: ${templateResponse.status}`);
+    
+    const templateContent = Buffer.from(await templateResponse.arrayBuffer());
+    const zip = new PizZip(templateContent);
+    
+    const doc = new DocxTemplater(zip, {
+        paragraphLoop: true,
+        linebreaks: true,
+        nullGetter: () => ''
+    });
+    
+    const documentData = prepareWordData(studentName, className, studentBirthdate, originalContributions);
+    doc.render({ ...documentData, image: '' });
+    
+    return doc.getZip().generate({ type: "nodebuffer", compression: "DEFLATE" });
 }
 
 // --- API Routes ---
@@ -881,17 +932,42 @@ app.post('/api/deleteContribution', async (req, res) => {
     }
 });
 
+// Table de données des photos élèves (même structure que côté client)
+const studentPhotoData = {
+    'Faysal': 'https://lh3.googleusercontent.com/d/1IB6BKROX3TRxaIIHVVVWbB7-Ii-V8VrC',
+    'Bilal': 'https://lh3.googleusercontent.com/d/1B0QUZJhpSad5Fs3qRTugUe4oyTlUDEVu',
+    'Jad': 'https://lh3.googleusercontent.com/d/1VLvrWjeJwaClf4pSaLiwjnS79N-HrsFr',
+    'Manaf': 'https://lh3.googleusercontent.com/d/1h46Tqtqcp5tNqdY62wV6pyZFYknCEMWY',
+    'Ahmed': 'https://lh3.googleusercontent.com/d/1cDF-yegSB2tqsWac0AoNttbi8qAALYT1',
+    'Yasser': 'https://lh3.googleusercontent.com/d/1UUrrAJV_bgFNktGDinDkSrpwSZz-e47T',
+    'Eyad': 'https://lh3.googleusercontent.com/d/1HGyWS4cC1jWWD25Ah3WcT_eIbUHqFzJ1',
+    'Ali': 'https://lh3.googleusercontent.com/d/1bN-fDf_IWkXoW3WjSOXI5_M4KkL3FDKr',
+    'Seifeddine': 'https://lh3.googleusercontent.com/d/1tWdPSbtCAsTMB86WzDgqh3Xw01ahm9s6',
+    'Mohamed Chalak': 'https://lh3.googleusercontent.com/d/1lB8ObGOvQDVT6FITL2y7C5TYmAGyggFn',
+    'Wajih': 'https://lh3.googleusercontent.com/d/1MH6M05mQamOHevmDffVFNpSFNnxqbxs3',
+    'Ahmad': 'https://lh3.googleusercontent.com/d/1zU-jBuAbYjHanzank9C1BAd00skS1Y5J',
+    'Adam': 'https://lh3.googleusercontent.com/d/15I9p6VSnn1yVmPxRRbGsUkM-fsBKYOWF',
+    'Mohamed Younes': 'https://lh3.googleusercontent.com/d/1wzraoZY_lRafcDXeaxSBeX5cIU57p4xA',
+    'Mohamed Amine Sgheir': 'https://lh3.googleusercontent.com/d/1UrBw6guz0oBTUy8COGeewIs3XAK773bR',
+    'Samir': 'https://lh3.googleusercontent.com/d/1NdaCH8CU0DJFHXw4D0lItP-QnCswl23b',
+    'Abdulrahman': 'https://lh3.googleusercontent.com/d/1yCTO5StU2tnPY0BEynnWzUveljMIUcLE',
+    'Youssef': 'https://lh3.googleusercontent.com/d/1Bygg5-PYrjjMOZdI5hAe16eZ8ltn772e',
+    'Habib': 'https://lh3.googleusercontent.com/d/13u4y6JIyCBVQ_9PCwYhh837byyK9g8pF',
+    'Salah': 'https://lh3.googleusercontent.com/d/1IG8S_i6jD8O6C2QD_nwLxrG932QgIVXu'
+};
+
 // Générer un document Word pour un élève
 app.post('/api/generateSingleWord', async (req, res) => {
     // Le middleware ensureDbConnection garantit que la DB est connectée
     try {
-        const { studentSelected, classSelected, sectionSelected, studentPhotoUrl } = req.body;
+        const { studentSelected, classSelected, sectionSelected, studentPhotoUrl, semester } = req.body;
         
         if (!studentSelected || !classSelected || !sectionSelected) {
             return res.status(400).json({ error: 'Informations manquantes' });
         }
         
-        console.log(`Word generation for: ${studentSelected}`);
+        const semesterNum = parseInt(semester) || 1;
+        console.log(`Word generation for: ${studentSelected} (Semestre ${semesterNum})`);
         
         // Récupérer les contributions
         const studentContributions = await contributionsCollection.find({
@@ -910,10 +986,22 @@ app.post('/api/generateSingleWord', async (req, res) => {
             { projection: { studentBirthdate: 1 } }
         );
         
-        // Récupérer l'image
+        // Récupérer l'image - priorité: URL fournie par le client, sinon URL depuis notre table
+        const photoUrl = (studentPhotoUrl && studentPhotoUrl.startsWith('http')) 
+            ? studentPhotoUrl 
+            : studentPhotoData[studentSelected] || null;
+        
         let imageBuffer = null;
-        if (studentPhotoUrl && studentPhotoUrl.startsWith('http')) {
-            imageBuffer = await fetchImage(studentPhotoUrl);
+        if (photoUrl) {
+            console.log(`📷 Récupération photo pour ${studentSelected}: ${photoUrl.substring(0, 60)}...`);
+            imageBuffer = await fetchImage(photoUrl);
+            if (imageBuffer) {
+                console.log(`✅ Photo récupérée: ${imageBuffer.length} bytes`);
+            } else {
+                console.warn(`⚠️ Impossible de récupérer la photo pour ${studentSelected}`);
+            }
+        } else {
+            console.log(`ℹ️ Pas de photo définie pour ${studentSelected}`);
         }
         
         // Créer le document
@@ -922,11 +1010,12 @@ app.post('/api/generateSingleWord', async (req, res) => {
             classSelected,
             studentInfo?.studentBirthdate,
             imageBuffer,
-            studentContributions
+            studentContributions,
+            semesterNum
         );
         
         // Générer nom de fichier pour le téléchargement
-        // Format: Livret-Nom-Prenom-Semestre.docx (sans caractères spéciaux)
+        // Format: Livret-Nom-Prenom-SemestreX.docx (sans caractères spéciaux)
         const fullName = getFullStudentName(studentSelected); // Utiliser nom complet
         // Remplacer espaces par tirets, supprimer caractères spéciaux
         const safeStudentName = fullName
@@ -935,7 +1024,7 @@ app.post('/api/generateSingleWord', async (req, res) => {
             .replace(/[^a-zA-Z0-9\-]/g, '') // Garder seulement lettres, chiffres, tirets
             .replace(/\-+/g, '-') // Éviter tirets multiples
             .replace(/^\-|\-$/g, ''); // Supprimer tirets début/fin
-        const docFileName = `Livret-${safeStudentName}-Semestre.docx`;
+        const docFileName = `Livret-${safeStudentName}-S${semesterNum}.docx`;
         
         // VERCEL COMPATIBLE: Stream direct sans écriture de fichier
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');

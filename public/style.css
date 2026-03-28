@@ -136,3 +136,57 @@ body{font-family:'Roboto',sans-serif;margin:0;padding:0;background-color:#f8f9fa
         font-size: 0.9em;
     }
 }
+
+/* Styles pour les boutons Semestre */
+.semester-btn {
+    padding: 20px 40px;
+    font-size: 1.2em;
+    border: none;
+    color: white;
+    cursor: pointer;
+    border-radius: 10px;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    min-width: 220px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.semester-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+}
+
+.semester-btn span {
+    font-size: 1.8em;
+}
+
+#semesterBadge {
+    font-size: 0.55em;
+    padding: 4px 14px;
+    border-radius: 20px;
+    color: white;
+    vertical-align: middle;
+    margin-left: 10px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+/* Mode Semestre 2: indication visuelle sur les colonnes S1 */
+.sem1-cell input[readonly],
+.sem1-unit-cell input[readonly],
+.sem1-unit input[readonly] {
+    background-color: #e9ecef !important;
+    cursor: not-allowed !important;
+    border-color: #ced4da;
+}
+
+@media (max-width: 480px) {
+    .semester-btn {
+        padding: 15px 20px;
+        font-size: 1em;
+        min-width: 150px;
+    }
+}

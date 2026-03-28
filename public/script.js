@@ -1,4 +1,6 @@
 // Variables globales
+let currentSemester = 1; // 1 = Semestre 1, 2 = Semestre 2
+
 let currentData = {
     contributionId: null,
     teacherName: localStorage.getItem('teacherName') || null,
@@ -455,8 +457,9 @@ function goToHome() {
     // Réinitialiser toutes les données
     resetOnSectionChange();
     
-    // Afficher uniquement les boutons de section
+    // Afficher uniquement les boutons de semestre
     document.getElementById('step0').style.display = 'block';
+    document.getElementById('step0b').style.display = 'none';
     document.getElementById('step1').style.display = 'none';
     document.getElementById('step2').style.display = 'none';
     document.getElementById('step3').style.display = 'none';
@@ -464,7 +467,131 @@ function goToHome() {
     dataContainer.style.display = 'none';
     studentInfoContainer.style.display = 'none';
     
+    // Réinitialiser le semestre
+    currentSemester = 1;
+    updateSemesterUI();
+    
     console.log('🏠 Retour à l\'accueil');
+}
+
+function handleSemesterChange(semester) {
+    currentSemester = semester;
+    updateSemesterUI();
+    
+    // Afficher les boutons de section
+    document.getElementById('step0b').style.display = 'block';
+    
+    console.log(`📅 Semestre sélectionné: ${semester}`);
+}
+
+function updateSemesterUI() {
+    const sem1Btn = document.getElementById('sem1Btn');
+    const sem2Btn = document.getElementById('sem2Btn');
+    if (sem1Btn && sem2Btn) {
+        if (currentSemester === 1) {
+            sem1Btn.style.opacity = '1';
+            sem1Btn.style.boxShadow = '0 0 0 4px rgba(13,110,253,0.4)';
+            sem2Btn.style.opacity = '0.6';
+            sem2Btn.style.boxShadow = 'none';
+        } else {
+            sem2Btn.style.opacity = '1';
+            sem2Btn.style.boxShadow = '0 0 0 4px rgba(25,135,84,0.4)';
+            sem1Btn.style.opacity = '0.6';
+            sem1Btn.style.boxShadow = 'none';
+        }
+    }
+    // Afficher un badge semestre dans le header
+    const semBadge = document.getElementById('semesterBadge');
+    if (semBadge) {
+        semBadge.textContent = `Semestre ${currentSemester}`;
+        semBadge.style.backgroundColor = currentSemester === 1 ? '#0d6efd' : '#198754';
+        semBadge.style.display = 'inline-block';
+    }
+}
+
+// Mode Semestre 2: Verrouiller les colonnes S1, vider commentaire/enseignant/ATL
+function applySemester2Mode() {
+    const isArabicSubject = currentData.subjectSelected === 'Acquisition de langue (اللغة العربية)';
+    
+    // Verrouiller les inputs Semestre 1 (lecture seule)
+    const sem1Selector = isArabicSubject 
+        ? '#criteriaTableBodyArabic .sem1-cell input, #criteriaTableBodyArabic .sem1-unit-cell input, #criteriaTableBodyArabic .sem1-unit input'
+        : '#criteriaTableBody .sem1-cell input, #criteriaTableBody .sem1-unit-cell input, #criteriaTableBody .sem1-unit input';
+    
+    document.querySelectorAll(sem1Selector).forEach(input => {
+        input.readOnly = true;
+        input.style.backgroundColor = '#e9ecef';
+        input.style.cursor = 'not-allowed';
+        input.title = 'Note Semestre 1 (lecture seule)';
+    });
+    
+    // Vider et activer les champs Semestre 2
+    const sem2Selector = isArabicSubject
+        ? '#criteriaTableBodyArabic .sem2-cell input, #criteriaTableBodyArabic .sem2-unit-cell input, #criteriaTableBodyArabic .sem2-unit input'
+        : '#criteriaTableBody .sem2-cell input, #criteriaTableBody .sem2-unit-cell input, #criteriaTableBody .sem2-unit input';
+    
+    document.querySelectorAll(sem2Selector).forEach(input => {
+        input.readOnly = false;
+        input.value = '';
+        input.style.backgroundColor = '';
+        input.style.cursor = '';
+        input.removeAttribute('title');
+    });
+    
+    // Aussi vider les moyennes S2 et niveaux finaux
+    const avgSem2Selector = isArabicSubject
+        ? '#criteriaTableBodyArabic .sem2-avg-input'
+        : '#criteriaTableBody .sem2-avg-input';
+    document.querySelectorAll(avgSem2Selector).forEach(input => {
+        input.value = '';
+    });
+    
+    const finalLevelSelector = isArabicSubject
+        ? '#criteriaTableBodyArabic .final-level-input'
+        : '#criteriaTableBody .final-level-input';
+    document.querySelectorAll(finalLevelSelector).forEach(input => {
+        input.value = '';
+    });
+    
+    // Vider les champs seuil et note finale
+    const thresholdId = isArabicSubject ? 'thresholdArabic' : 'threshold';
+    const finalNoteId = isArabicSubject ? 'finalNoteArabic' : 'finalNote';
+    const thresholdEl = document.getElementById(thresholdId);
+    const finalNoteEl = document.getElementById(finalNoteId);
+    if (thresholdEl) thresholdEl.value = '';
+    if (finalNoteEl) finalNoteEl.value = '';
+    
+    // Vider commentaire, nom enseignant et ATL
+    if (!isArabicSubject) {
+        const commentEl = document.getElementById('teacherComment');
+        if (commentEl) commentEl.value = '';
+        const nameEl = document.getElementById('teacherName');
+        if (nameEl) nameEl.value = currentData.teacherName || '';
+        document.querySelectorAll('#communicationTable tbody select').forEach(s => s.value = '');
+    } else {
+        const commentElAr = document.getElementById('teacherCommentArabic');
+        if (commentElAr) commentElAr.value = '';
+        const nameElAr = document.getElementById('teacherNameArabic');
+        if (nameElAr) nameElAr.value = currentData.teacherName || '';
+        document.querySelectorAll('#communicationTableArabic tbody select').forEach(s => s.value = '');
+    }
+    
+    // Réinitialiser dans currentData
+    currentData.teacherComment = null;
+    currentData.communicationEvaluation = ['', '', '', '', ''];
+    
+    // Mettre à jour les valeurs sem2 dans currentData à null
+    ['A', 'B', 'C', 'D'].forEach(key => {
+        if (currentData.criteriaValues[key]) {
+            currentData.criteriaValues[key].sem2 = null;
+            currentData.criteriaValues[key].sem2Units = [];
+            // Recalculer le niveau final (seulement S1 pour l'instant)
+            const sem1 = currentData.criteriaValues[key].sem1;
+            currentData.criteriaValues[key].finalLevel = sem1;
+        }
+    });
+    
+    console.log('🔒 Mode Semestre 2 activé - colonnes S1 verrouillées');
 }
 
 function handleSectionChange(value) {
@@ -546,6 +673,11 @@ async function handleSubjectChange(value) {
         } else {
             updateCriteriaTableDynamicallyArabic();
             rebuildCriteriaTableArabic();
+        }
+        
+        // Si Semestre 2: verrouiller les colonnes S1 et vider les champs hors tableau critères
+        if (currentSemester === 2) {
+            applySemester2Mode();
         }
     }
 }
@@ -1245,6 +1377,18 @@ function fillFormWithData(data) {
         }
     });
     
+    // Si Semestre 2: effacer les valeurs S2 chargées (on repart de zéro pour S2)
+    if (currentSemester === 2) {
+        ['A', 'B', 'C', 'D'].forEach(key => {
+            if (currentData.criteriaValues[key]) {
+                currentData.criteriaValues[key].sem2 = null;
+                currentData.criteriaValues[key].sem2Units = [];
+                // Niveau final = uniquement S1 pour l'instant
+                currentData.criteriaValues[key].finalLevel = currentData.criteriaValues[key].sem1;
+            }
+        });
+    }
+    
     // Reconstruire le tableau avec les bonnes colonnes
     if (isArabicSubject) {
         rebuildCriteriaTableArabic();
@@ -1609,7 +1753,8 @@ async function generateAllWordsInSection() {
                 studentSelected: studentName,
                 classSelected: classe,
                 sectionSelected: section,
-                studentPhotoUrl: photoUrl
+                studentPhotoUrl: photoUrl,
+                semester: currentSemester
             });
 
             if (result.success) {
@@ -1782,14 +1927,19 @@ function getSubjectColor(subject) {
 
 // Initialisation
 document.addEventListener('DOMContentLoaded', () => {
-    console.log("🚀 Livret IB Version 2.1 - Commit: 35726f6");
+    console.log("🚀 Livret IB Version 2.2 - Semestres + Photo Word");
+    console.log("✅ Boutons Semestre 1 / Semestre 2 ajoutés");
+    console.log("✅ Mode Semestre 2: notes S1 conservées, S2 vide");
+    console.log("✅ Photo élève dans livret Word");
     console.log("✅ Cartes de matières activées");
     console.log("✅ Chargement automatique des données");
-    console.log("✅ ATL arabe corrigé");
-    console.log("✅ RTL pour observations arabes");
     
     if (currentData.teacherName) {
         teacherNameInput.value = currentData.teacherName;
     }
+    
+    // Initialiser l'UI du semestre
+    updateSemesterUI();
+    
     console.log("📱 Application prête.");
 });
