@@ -48,6 +48,8 @@ console.log('TEMPLATE_URL defined:', !!process.env.TEMPLATE_URL);
 console.log('TEMPLATE_URL:', process.env.TEMPLATE_URL ? process.env.TEMPLATE_URL.substring(0, 50) + '...' : 'Not set');
 console.log('TEMPLATE_URL_DP defined:', !!process.env.TEMPLATE_URL_DP);
 console.log('TEMPLATE_URL_DP:', process.env.TEMPLATE_URL_DP ? process.env.TEMPLATE_URL_DP.substring(0, 50) + '...' : 'Not set');
+console.log('TEMPLATE_URL_S2 defined:', !!process.env.TEMPLATE_URL_S2);
+console.log('TEMPLATE_URL_S2:', process.env.TEMPLATE_URL_S2 ? process.env.TEMPLATE_URL_S2.substring(0, 50) + '...' : 'Not set (hardcoded S2 URL will be used)');
 console.log('All env vars containing MONGO or DB:', 
     Object.keys(process.env).filter(k => k.toLowerCase().includes('mongo') || k.toLowerCase().includes('db_'))
 );
@@ -568,22 +570,35 @@ function prepareWordData(studentName, className, studentBirthdate, originalContr
     return documentData;
 }
 
+// URL du template Semestre 2 (hardcodée + variable d'env en override)
+const TEMPLATE_S2_DEFAULT_URL = 'https://lh3.googleusercontent.com/d/1FHsw_BxQfWnXJOmKME8TvqrGjRHcI7-1';
+
 async function createWordDocumentBuffer(studentName, className, studentBirthdate, imageBuffer, originalContributions, semester = 1) {
-    // CORRECTION: Toutes les classes (PEI et DP) utilisent le MÊME modèle
-    console.log(`🎓 Class: ${className} - Utilisation du modèle PEI unique - Semestre ${semester}`);
+    console.log(`🎓 Class: ${className} - Semestre ${semester}`);
     
     try {
-        // Utiliser l'URL du template depuis les variables d'environnement
-        const TEMPLATE_URL = process.env.TEMPLATE_URL;
-        
-        if (!TEMPLATE_URL) {
-            throw new Error('TEMPLATE_URL not found in environment variables');
+        // Choisir l'URL du template selon le semestre
+        let TEMPLATE_URL;
+        if (semester === 2) {
+            TEMPLATE_URL = process.env.TEMPLATE_URL_S2 || TEMPLATE_S2_DEFAULT_URL;
+            console.log(`📁 Semestre 2: template S2`);
+        } else {
+            TEMPLATE_URL = process.env.TEMPLATE_URL;
+            if (!TEMPLATE_URL) {
+                throw new Error('TEMPLATE_URL not found in environment variables');
+            }
+            console.log(`📁 Semestre 1: template S1`);
         }
         
-        console.log(`📁 Loading template from: ${TEMPLATE_URL.substring(0, 50)}...`);
+        console.log(`📁 Loading template from: ${TEMPLATE_URL.substring(0, 60)}...`);
         
-        // Télécharger le template depuis l'URL
-        const templateResponse = await fetch(TEMPLATE_URL);
+        // Télécharger le template
+        const templateResponse = await fetch(TEMPLATE_URL, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            },
+            redirect: 'follow'
+        });
         if (!templateResponse.ok) {
             throw new Error(`Failed to fetch template: ${templateResponse.status} ${templateResponse.statusText}`);
         }
@@ -597,87 +612,87 @@ async function createWordDocumentBuffer(studentName, className, studentBirthdate
         
         console.log(`🔄 Preparing Word data for ${studentName}...`);
         const documentData = prepareWordData(studentName, className, studentBirthdate, originalContributions, semester);
-        
-        // Gestion de l'image avec ImageModule
-        // Le template utilise {%image} pour l'insertion d'image
+
+        // --- Gestion image avec ImageModule ---
+        // Le template S2 utilise {%image}, S1 peut utiliser {image} (texte) ou {%image}
         let docTemplaterOptions = {
             paragraphLoop: true,
             linebreaks: true,
-            nullGetter: (part) => {
-                return '';
-            }
+            nullGetter: () => ''
         };
         
-        // Configurer l'ImageModule si une image est disponible
+        let imageTagValue = ''; // valeur pour le tag texte {image}
+        
         if (imageBuffer && imageBuffer.length > 0) {
-            console.log(`📷 Image disponible (${imageBuffer.length} bytes) - utilisation de ImageModule`);
+            console.log(`📷 Image disponible (${imageBuffer.length} bytes) - configuration ImageModule`);
             try {
+                const capturedImageBuffer = imageBuffer;
                 const imageModuleOpts = {
-                    centered: false,
+                    centered: true,
                     fileType: 'docx',
-                    getImage: function(tagValue) {
-                        // tagValue = la valeur passée au tag {%image}
-                        // On retourne directement le buffer de l'image
-                        if (tagValue === '__STUDENT_PHOTO__') {
-                            return imageBuffer;
-                        }
-                        return imageBuffer; // Par défaut retourner l'image de l'élève
+                    getImage: function(tagValue, tagName) {
+                        console.log(`📷 getImage called: tagName=${tagName}, tagValue=${String(tagValue).substring(0,30)}`);
+                        return capturedImageBuffer;
                     },
-                    getSize: function(img) {
-                        // Taille fixe: 60x60 pixels (correspond au resize dans fetchImage)
-                        return [60, 60];
+                    getSize: function(img, tagValue, tagName) {
+                        return [80, 100]; // largeur x hauteur en pixels
                     }
                 };
                 const imageModule = new ImageModule(imageModuleOpts);
                 docTemplaterOptions.modules = [imageModule];
-                console.log(`✅ ImageModule configuré avec succès`);
+                imageTagValue = '__PHOTO__'; // valeur déclenchant getImage
+                console.log(`✅ ImageModule configuré - tag {%image} actif`);
             } catch (imgErr) {
-                console.warn(`⚠️ Impossible de configurer ImageModule: ${imgErr.message} - utilisation du placeholder texte`);
+                console.warn(`⚠️ ImageModule config échouée: ${imgErr.message}`);
+                imageTagValue = '';
             }
         } else {
-            console.log(`📷 Pas d'image disponible - le tag {image} sera remplacé par du texte vide`);
+            console.log(`📷 Pas d'image disponible`);
         }
         
         const doc = new DocxTemplater(zip, docTemplaterOptions);
         
-        // Préparer les données avec l'image
         const dataToRender = {
             ...documentData,
-            // Pour le tag {image} (texte) : vide si on a une vraie image via ImageModule, sinon vide aussi
-            image: (imageBuffer && imageBuffer.length > 0) ? '__STUDENT_PHOTO__' : ''
+            image: imageTagValue
         };
         
-        console.log(`📷 Image tag value: "${dataToRender.image ? 'set' : 'empty'}"`);
-        console.log(`🔄 Rendering Word document for ${studentName}...`);
-        console.log(`   Data keys: ${Object.keys(dataToRender).join(', ')}`);
+        console.log(`🔄 Rendering Word document for ${studentName} (S${semester})...`);
         doc.render(dataToRender);
         console.log(`✅ Document rendered successfully`);
         
-        console.log(`🔄 Generating final buffer for ${studentName}...`);
         const buffer = doc.getZip().generate({
-            type: "nodebuffer",
-            compression: "DEFLATE"
+            type: 'nodebuffer',
+            compression: 'DEFLATE'
         });
-        console.log(`✅ Buffer generated: ${buffer.length} bytes`);
+        console.log(`✅ Buffer: ${buffer.length} bytes`);
         
         return buffer;
     } catch (error) {
         console.error(`Error creating Word buffer for ${studentName}:`, error.message);
-        // Si l'erreur est liée à ImageModule, réessayer sans image
-        if (error.message && (error.message.includes('image') || error.message.includes('Image') || error.message.includes('tag'))) {
-            console.warn(`⚠️ Erreur ImageModule détectée, génération sans image...`);
-            return await createWordDocumentBufferNoImage(studentName, className, studentBirthdate, originalContributions);
+        if (error.properties && error.properties.errors) {
+            console.error('DocxTemplater errors:', JSON.stringify(error.properties.errors));
         }
-        throw error;
+        // Fallback sans image
+        console.warn(`⚠️ Tentative de génération sans image en fallback...`);
+        return await createWordDocumentBufferNoImage(studentName, className, studentBirthdate, originalContributions, semester);
     }
 }
 
-// Fallback: génération sans image si ImageModule échoue
-async function createWordDocumentBufferNoImage(studentName, className, studentBirthdate, originalContributions) {
-    const TEMPLATE_URL = process.env.TEMPLATE_URL;
-    if (!TEMPLATE_URL) throw new Error('TEMPLATE_URL not found');
+// Fallback: génération sans image
+async function createWordDocumentBufferNoImage(studentName, className, studentBirthdate, originalContributions, semester = 1) {
+    let TEMPLATE_URL;
+    if (semester === 2) {
+        TEMPLATE_URL = process.env.TEMPLATE_URL_S2 || TEMPLATE_S2_DEFAULT_URL;
+    } else {
+        TEMPLATE_URL = process.env.TEMPLATE_URL;
+        if (!TEMPLATE_URL) throw new Error('TEMPLATE_URL not found');
+    }
     
-    const templateResponse = await fetch(TEMPLATE_URL);
+    const templateResponse = await fetch(TEMPLATE_URL, {
+        headers: { 'User-Agent': 'Mozilla/5.0' },
+        redirect: 'follow'
+    });
     if (!templateResponse.ok) throw new Error(`Failed to fetch template: ${templateResponse.status}`);
     
     const templateContent = Buffer.from(await templateResponse.arrayBuffer());
@@ -689,10 +704,10 @@ async function createWordDocumentBufferNoImage(studentName, className, studentBi
         nullGetter: () => ''
     });
     
-    const documentData = prepareWordData(studentName, className, studentBirthdate, originalContributions);
+    const documentData = prepareWordData(studentName, className, studentBirthdate, originalContributions, semester);
     doc.render({ ...documentData, image: '' });
     
-    return doc.getZip().generate({ type: "nodebuffer", compression: "DEFLATE" });
+    return doc.getZip().generate({ type: 'nodebuffer', compression: 'DEFLATE' });
 }
 
 // --- API Routes ---
@@ -757,13 +772,20 @@ app.get('/api/test', (req, res) => {
 app.post('/api/fetchData', async (req, res) => {
     // Le middleware ensureDbConnection garantit que la DB est connectée
     try {
-        const { studentSelected, subjectSelected, classSelected, sectionSelected } = req.body;
+        const { studentSelected, subjectSelected, classSelected, sectionSelected, semester } = req.body;
         if (!studentSelected || !subjectSelected) {
             return res.json({ noDataForSubject: true, studentSelected });
         }
+        const semNum = parseInt(semester) || 1;
         const query = { studentSelected, subjectSelected };
         if (classSelected) query.classSelected = classSelected;
         if (sectionSelected) query.sectionSelected = sectionSelected;
+        // Filtrer par semestre
+        if (semNum === 2) {
+            query.semester = 2;
+        } else {
+            query.$or = [{ semester: { $exists: false } }, { semester: 1 }];
+        }
         const contribution = await contributionsCollection.findOne(query);
         const studentInfo = await studentsCollection.findOne({ studentSelected }, { projection: { studentBirthdate: 1 } });
         
@@ -774,7 +796,6 @@ app.post('/api/fetchData', async (req, res) => {
         }
     } catch (error) {
         console.error('Error fetching data:', error);
-        // Retourner un objet valide au lieu d'erreur 500
         const { studentSelected } = req.body;
         res.json({ noDataForSubject: true, studentSelected });
     }
@@ -825,6 +846,10 @@ app.post('/api/saveContribution', async (req, res) => {
             );
         }
         
+        // Normaliser le champ semester (1 ou 2)
+        const semNum = parseInt(contribData.semester) || 1;
+        contribData.semester = semNum;
+
         let result;
         if (contributionId) {
             // Mise à jour
@@ -834,9 +859,16 @@ app.post('/api/saveContribution', async (req, res) => {
                 { returnDocument: 'after' }
             );
         } else {
-            // Création ou upsert
+            // Création ou upsert - clé unique inclut maintenant le semestre
+            const upsertFilter = {
+                studentSelected: contribData.studentSelected,
+                subjectSelected: contribData.subjectSelected,
+                classSelected: contribData.classSelected,
+                sectionSelected: contribData.sectionSelected,
+                semester: semNum
+            };
             result = await contributionsCollection.findOneAndUpdate(
-                { studentSelected: contribData.studentSelected, subjectSelected: contribData.subjectSelected, classSelected: contribData.classSelected, sectionSelected: contribData.sectionSelected },
+                upsertFilter,
                 { $set: contribData, $setOnInsert: { createdAt: new Date() } },
                 { upsert: true, returnDocument: 'after' }
             );
@@ -866,15 +898,17 @@ app.post('/api/saveContribution', async (req, res) => {
 app.post('/api/fetchStudentContributions', async (req, res) => {
     // Le middleware ensureDbConnection garantit que la DB est connectée
     try {
-        const { studentSelected, classSelected, sectionSelected } = req.body;
-        if (!studentSelected) {
-            return res.json({ contributions: [] });
-        }
-        
         // Construire le filtre de requête
+        const semNum = parseInt(semester) || 1;
         const filter = { studentSelected };
         if (classSelected) filter.classSelected = classSelected;
         if (sectionSelected) filter.sectionSelected = sectionSelected;
+        // Filtrer par semestre
+        if (semNum === 2) {
+            filter.semester = 2;
+        } else {
+            filter.$or = [{ semester: { $exists: false } }, { semester: 1 }];
+        }
         
         const contributions = await contributionsCollection.find(filter)
             .sort({ subjectSelected: 1 })
@@ -969,10 +1003,20 @@ app.post('/api/generateSingleWord', async (req, res) => {
         const semesterNum = parseInt(semester) || 1;
         console.log(`Word generation for: ${studentSelected} (Semestre ${semesterNum})`);
         
-        // Récupérer les contributions
+        // Récupérer les contributions selon le semestre
+        // Semestre 1: contributions sans champ semester OU semester=1
+        // Semestre 2: contributions avec semester=2
+        let semesterFilter;
+        if (semesterNum === 2) {
+            semesterFilter = { semester: 2 };
+        } else {
+            // S1: contributions sans semester OU semester=1
+            semesterFilter = { $or: [{ semester: { $exists: false } }, { semester: 1 }] };
+        }
         const studentContributions = await contributionsCollection.find({
             studentSelected: studentSelected,
-            sectionSelected: sectionSelected
+            sectionSelected: sectionSelected,
+            ...semesterFilter
         }).toArray();
         
         if (studentContributions.length === 0) {

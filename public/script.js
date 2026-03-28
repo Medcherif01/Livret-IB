@@ -474,6 +474,60 @@ function goToHome() {
     console.log('🏠 Retour à l\'accueil');
 }
 
+// --- Fonctions de navigation arrière ---
+function goBackToSemester() {
+    // Retour à la sélection de semestre (masquer la section)
+    document.getElementById('step0b').style.display = 'none';
+    // Réinitialiser sem sélectionné visuellement
+    const sem1Btn = document.getElementById('sem1Btn');
+    const sem2Btn = document.getElementById('sem2Btn');
+    if (sem1Btn) { sem1Btn.style.opacity = '1'; sem1Btn.style.boxShadow = 'none'; }
+    if (sem2Btn) { sem2Btn.style.opacity = '1'; sem2Btn.style.boxShadow = 'none'; }
+    currentSemester = 1;
+    const semBadge = document.getElementById('semesterBadge');
+    if (semBadge) semBadge.style.display = 'none';
+}
+
+function goBackToSection() {
+    // Retour à la sélection de section
+    document.getElementById('step1').style.display = 'none';
+    document.getElementById('step3').style.display = 'none';
+    studentInfoContainer.style.display = 'none';
+    contributionEntrySections.style.display = 'none';
+    dataContainer.style.display = 'none';
+    document.getElementById('step0').style.display = 'block';
+    document.getElementById('step0b').style.display = 'block';
+    currentData.classSelected = null;
+    currentData.studentSelected = null;
+    currentData.subjectSelected = null;
+    resetFormData();
+}
+
+function goBackToClass() {
+    // Retour à la sélection de classe
+    document.getElementById('step3').style.display = 'none';
+    studentInfoContainer.style.display = 'none';
+    contributionEntrySections.style.display = 'none';
+    dataContainer.style.display = 'none';
+    document.getElementById('step1').style.display = 'block';
+    currentData.studentSelected = null;
+    currentData.subjectSelected = null;
+    resetFormData();
+}
+
+function goBackToStudent() {
+    // Retour à la sélection d'élève (depuis les infos élève / matière)
+    contributionEntrySections.style.display = 'none';
+    dataContainer.style.display = 'none';
+    document.getElementById('step2').style.display = 'none';
+    studentInfoContainer.style.display = 'none';
+    document.getElementById('step3').style.display = 'block';
+    currentData.subjectSelected = null;
+    resetFormData();
+    // Ré-afficher la sélection d'élève
+    document.getElementById('step3').style.display = 'block';
+}
+
 function handleSemesterChange(semester) {
     currentSemester = semester;
     updateSemesterUI();
@@ -662,23 +716,17 @@ async function handleSubjectChange(value) {
         contributionEntrySections.style.display = "block";
         dataContainer.style.display = "none";
         
-        // NOUVEAU: Charger automatiquement les données si elles existent
-        console.log('🔄 Chargement automatique des données pour:', value);
-        await fetchData();
-        
+        // Mettre à jour les en-têtes du tableau selon la classe
         if (!isArabicSubject) {
             updateCriteriaTableDynamically();
             updateCriteriaTableHeaders();
-            rebuildCriteriaTable();
         } else {
             updateCriteriaTableDynamicallyArabic();
-            rebuildCriteriaTableArabic();
         }
         
-        // Si Semestre 2: verrouiller les colonnes S1 et vider les champs hors tableau critères
-        if (currentSemester === 2) {
-            applySemester2Mode();
-        }
+        // Charger automatiquement les données (gère S1 et S2)
+        console.log('🔄 Chargement automatique des données pour:', value, '(Semestre', currentSemester, ')');
+        await fetchData();
     }
 }
 
@@ -943,7 +991,8 @@ async function populateSubjects() {
             const response = await apiCall('fetchStudentContributions', {
                 studentSelected: studentSelected,
                 classSelected: classSelected,
-                sectionSelected: currentData.sectionSelected
+                sectionSelected: currentData.sectionSelected,
+                semester: currentSemester
             });
             
             // Marquer les matières avec des contributions
@@ -1295,23 +1344,85 @@ function calculateTotals() {
 async function fetchData() {
     if (currentData.studentSelected && currentData.subjectSelected) {
         try {
+            // Charger les données du semestre courant
             const data = await apiCall('fetchData', {
                 studentSelected: currentData.studentSelected,
                 subjectSelected: currentData.subjectSelected,
                 classSelected: currentData.classSelected,
-                sectionSelected: currentData.sectionSelected
+                sectionSelected: currentData.sectionSelected,
+                semester: currentSemester
             });
             
             resetInputTables();
             
-            if (data && !data.noDataForSubject) {
-                fillFormWithData(data);
-                currentContributionId = data._id || null;
+            if (currentSemester === 2) {
+                // En mode S2: charger d'abord les notes S1 comme référence
+                let s1Data = null;
+                try {
+                    s1Data = await apiCall('fetchData', {
+                        studentSelected: currentData.studentSelected,
+                        subjectSelected: currentData.subjectSelected,
+                        classSelected: currentData.classSelected,
+                        sectionSelected: currentData.sectionSelected,
+                        semester: 1
+                    });
+                } catch(e) { /* ignore */ }
+                
+                // Extraire les notes S1 depuis les données S1
+                const s1CriteriaValues = (s1Data && !s1Data.noDataForSubject) 
+                    ? JSON.parse(JSON.stringify(s1Data.criteriaValues || {}))
+                    : {};
+                
+                if (data && !data.noDataForSubject) {
+                    // Il y a déjà des données S2 sauvegardées -> les charger
+                    fillFormWithData(data);
+                    currentContributionId = data._id || null;
+                    // Écraser les valeurs S1 avec les vraies données S1
+                    ['A','B','C','D'].forEach(key => {
+                        if (currentData.criteriaValues[key]) {
+                            currentData.criteriaValues[key].sem1 = s1CriteriaValues[key]?.sem1 ?? null;
+                            currentData.criteriaValues[key].sem1Units = s1CriteriaValues[key]?.sem1Units ?? [];
+                        }
+                    });
+                } else {
+                    // Pas encore de données S2 -> préparer le formulaire vierge avec S1 en référence
+                    currentContributionId = null;
+                    teacherNameInput.value = currentData.teacherName || '';
+                    document.getElementById('teacherComment').value = '';
+                    // Pré-remplir les notes S1
+                    ['A','B','C','D'].forEach(key => {
+                        currentData.criteriaValues[key] = {
+                            sem1: s1CriteriaValues[key]?.sem1 ?? null,
+                            sem1Units: s1CriteriaValues[key]?.sem1Units ?? [],
+                            sem2: null,
+                            sem2Units: [],
+                            finalLevel: null
+                        };
+                    });
+                }
+                
+                // Reconstruire le tableau
+                const isArabicSubject = currentData.subjectSelected === 'Acquisition de langue (اللغة العربية)';
+                if (isArabicSubject) {
+                    rebuildCriteriaTableArabic();
+                } else {
+                    rebuildCriteriaTable();
+                }
+                
+                // Verrouiller les colonnes S1
+                applySemester2Mode();
+                
             } else {
-                currentContributionId = null;
-                teacherNameInput.value = currentData.teacherName || '';
-                document.getElementById('teacherComment').value = '';
-                calculateTotals();
+                // Mode S1: comportement normal
+                if (data && !data.noDataForSubject) {
+                    fillFormWithData(data);
+                    currentContributionId = data._id || null;
+                } else {
+                    currentContributionId = null;
+                    teacherNameInput.value = currentData.teacherName || '';
+                    document.getElementById('teacherComment').value = '';
+                    calculateTotals();
+                }
             }
             
             contributionEntrySections.style.display = "block";
@@ -1377,18 +1488,6 @@ function fillFormWithData(data) {
         }
     });
     
-    // Si Semestre 2: effacer les valeurs S2 chargées (on repart de zéro pour S2)
-    if (currentSemester === 2) {
-        ['A', 'B', 'C', 'D'].forEach(key => {
-            if (currentData.criteriaValues[key]) {
-                currentData.criteriaValues[key].sem2 = null;
-                currentData.criteriaValues[key].sem2Units = [];
-                // Niveau final = uniquement S1 pour l'instant
-                currentData.criteriaValues[key].finalLevel = currentData.criteriaValues[key].sem1;
-            }
-        });
-    }
-    
     // Reconstruire le tableau avec les bonnes colonnes
     if (isArabicSubject) {
         rebuildCriteriaTableArabic();
@@ -1419,7 +1518,8 @@ async function submitForm() {
         // Assurer que la date de naissance est à jour
         currentData.studentBirthdate = studentBirthdateInput.value || null;
         
-        const contributionData = { ...currentData, contributionId: currentContributionId };
+        // Inclure le semestre courant dans les données
+        const contributionData = { ...currentData, contributionId: currentContributionId, semester: currentSemester };
         
         console.log('📤 Données à sauvegarder:', contributionData);
         console.log('📊 ATL Communication:', contributionData.communicationEvaluation);
@@ -1482,7 +1582,8 @@ async function fetchStudentContributions(student) {
         const response = await apiCall('fetchStudentContributions', { 
             studentSelected: student,
             classSelected: currentData.classSelected,
-            sectionSelected: currentData.sectionSelected
+            sectionSelected: currentData.sectionSelected,
+            semester: currentSemester
         });
         const contributions = response?.contributions || [];
         
@@ -1927,10 +2028,11 @@ function getSubjectColor(subject) {
 
 // Initialisation
 document.addEventListener('DOMContentLoaded', () => {
-    console.log("🚀 Livret IB Version 2.2 - Semestres + Photo Word");
-    console.log("✅ Boutons Semestre 1 / Semestre 2 ajoutés");
-    console.log("✅ Mode Semestre 2: notes S1 conservées, S2 vide");
-    console.log("✅ Photo élève dans livret Word");
+    console.log("🚀 Livret IB Version 2.3 - S2 indépendant, template S2, boutons retour");
+    console.log("✅ S2 stocké séparément en DB (champ semester=2)");
+    console.log("✅ Template Word dédié pour Semestre 2");
+    console.log("✅ Photo élève via ImageModule {%image}");
+    console.log("✅ Boutons Précédent à chaque étape");
     console.log("✅ Cartes de matières activées");
     console.log("✅ Chargement automatique des données");
     

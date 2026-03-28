@@ -18,7 +18,7 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     
     <!-- Stylesheets -->
-    <link rel="stylesheet" href="style.css?v=2.0.3">
+    <link rel="stylesheet" href="style.css?v=2.3.0">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -51,6 +51,9 @@
                     </button>
                 </div>
                 <div id="step0b" style="display:none;">
+                    <div class="back-btn-row">
+                        <button class="back-btn" onclick="goBackToSemester()">← Retour</button>
+                    </div>
                     <h2>2. Choisir une Section</h2>
                     <div class="section-buttons">
                         <button class="garçons" onclick="handleSectionChange('garçons')">
@@ -66,7 +69,10 @@
             </section>
             
             <section id="step1" style="display: none;">
-                <h2>2. Choisir une Classe</h2>
+                <div class="back-btn-row">
+                    <button class="back-btn" onclick="goBackToSection()">← Retour</button>
+                </div>
+                <h2>3. Choisir une Classe</h2>
                 <select id="classSelector" onchange="handleClassChange(this.value)">
                     <option value="">-- Sélectionnez une Classe --</option>
                     <option value="PEI1">PEI1</option>
@@ -80,7 +86,10 @@
             </section>
             
             <section id="step3" style="display: none;">
-                <h2>3. Choisir un Élève</h2>
+                <div class="back-btn-row">
+                    <button class="back-btn" onclick="goBackToClass()">← Retour</button>
+                </div>
+                <h2>4. Choisir un Élève</h2>
                 <select id="studentSelector" onchange="handleStudentChange(this.value)">
                     <option value="">-- Sélectionnez un élève --</option>
                 </select>
@@ -88,6 +97,9 @@
         </div>
 
         <div id="studentInfoContainer" class="data-container" style="display: none">
+            <div class="back-btn-row">
+                <button class="back-btn" onclick="goBackToStudent()">← Retour</button>
+            </div>
             <h2>Informations Élève</h2>
             <div class="student-info">
                 <div class="student-photo-birthdate-container">
@@ -107,7 +119,7 @@
             </div>
             
             <section id="step2" style="display: none; margin-top: 20px; padding: 15px;">
-                <h2>4. Choisir une Matière</h2>
+                <h2>5. Choisir une Matière</h2>
                 <div id="subjectsGrid" class="subjects-grid">
                     <!-- Les cartes de matières seront générées dynamiquement par JavaScript -->
                 </div>
@@ -333,11 +345,15 @@
         <div class="data-container" id="dataContainer"></div>
     </main>
 
-    <script src="/script.js?v=2.0.4"></script>
+    <script src="/script.js?v=2.3.0"></script>
     <script>
         // script.js charge toutes les fonctions et variables requises.
         // Ici, nous n'ajoutons que les handlers nécessaires pour les attributs HTML inline.
         window.goToHome = goToHome;
+        window.goBackToSemester = goBackToSemester;
+        window.goBackToSection = goBackToSection;
+        window.goBackToClass = goBackToClass;
+        window.goBackToStudent = goBackToStudent;
         window.handleSemesterChange = handleSemesterChange;
         window.handleSectionChange = handleSectionChange;
         window.handleClassChange = handleClassChange;
