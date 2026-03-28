@@ -171,7 +171,16 @@ async function connectToMongo(retryCount = 0) {
                     console.warn('⚠️ Could not drop legacy index (will continue):', dropErr.message);
                 }
             }
-            await contributionsCollection.createIndex({ studentSelected: 1, subjectSelected: 1, classSelected: 1, sectionSelected: 1 }, { unique: true, name: 'uniq_student_subject_class_section' });
+            // Index unique incluant semester pour permettre S1 et S2 indépendants
+            // Supprimer l'ancien index sans semester s'il existe
+            try {
+                await contributionsCollection.dropIndex('uniq_student_subject_class_section');
+                console.log('ℹ️ Ancien index sans semester supprimé');
+            } catch(e) { /* index n'existe pas, c'est OK */ }
+            await contributionsCollection.createIndex(
+                { studentSelected: 1, subjectSelected: 1, classSelected: 1, sectionSelected: 1, semester: 1 },
+                { unique: true, name: 'uniq_student_subject_class_section_semester' }
+            );
             await studentsCollection.createIndex({ studentSelected: 1 }, { unique: true });
             console.log('✅ Database indexes created successfully');
         } catch (indexError) {
@@ -784,9 +793,15 @@ app.post('/api/fetchData', async (req, res) => {
         if (semNum === 2) {
             query.semester = 2;
         } else {
-            query.$or = [{ semester: { $exists: false } }, { semester: 1 }];
+            query.semester = { $in: [1, null] };
         }
-        const contribution = await contributionsCollection.findOne(query);
+        let contribution = await contributionsCollection.findOne(query);
+        // Fallback S1: anciens enregistrements sans champ semester
+        if (!contribution && semNum === 1) {
+            delete query.semester;
+            const fallbackQuery = { ...query };
+            contribution = await contributionsCollection.findOne(fallbackQuery);
+        }
         const studentInfo = await studentsCollection.findOne({ studentSelected }, { projection: { studentBirthdate: 1 } });
         
         if (contribution) {
@@ -874,15 +889,20 @@ app.post('/api/saveContribution', async (req, res) => {
             );
         }
         
-        if (result.value) {
-            console.log(`Contribution saved: ${result.value._id}`);
+        // findOneAndUpdate returns the document directly in newer MongoDB drivers
+        const savedDoc = result?.value || result;
+        const savedId = savedDoc?._id || result?._id;
+        if (savedId || result) {
+            console.log(`Contribution saved: ${savedId}`);
             res.json({ 
                 success: true, 
                 message: 'Contribution enregistrée/mise à jour', 
-                data: result.value._id 
+                data: savedId 
             });
         } else {
-            res.status(400).json({ error: 'Erreur lors de la sauvegarde' });
+            // Upsert succeeded but doc not returned – still a success
+            console.log(`Contribution upserted (no doc returned)`);
+            res.json({ success: true, message: 'Contribution enregistrée/mise à jour', data: null });
         }
     } catch (error) {
         console.error('Error saving contribution:', error);
@@ -898,6 +918,10 @@ app.post('/api/saveContribution', async (req, res) => {
 app.post('/api/fetchStudentContributions', async (req, res) => {
     // Le middleware ensureDbConnection garantit que la DB est connectée
     try {
+        const { studentSelected, classSelected, sectionSelected, semester } = req.body;
+        if (!studentSelected) {
+            return res.json({ contributions: [] });
+        }
         // Construire le filtre de requête
         const semNum = parseInt(semester) || 1;
         const filter = { studentSelected };
@@ -907,14 +931,25 @@ app.post('/api/fetchStudentContributions', async (req, res) => {
         if (semNum === 2) {
             filter.semester = 2;
         } else {
-            filter.$or = [{ semester: { $exists: false } }, { semester: 1 }];
+            filter.semester = { $in: [1, null] };
         }
         
         const contributions = await contributionsCollection.find(filter)
             .sort({ subjectSelected: 1 })
             .toArray();
         
-        console.log(`📚 Contributions trouvées pour ${studentSelected}:`, contributions.length);
+        // Fallback S1: si aucun résultat avec le filtre strict, chercher sans filtre semester
+        if (semNum === 1 && contributions.length === 0) {
+            const filterNoSem = { studentSelected };
+            if (classSelected) filterNoSem.classSelected = classSelected;
+            if (sectionSelected) filterNoSem.sectionSelected = sectionSelected;
+            const allContribs = await contributionsCollection.find(filterNoSem).sort({ subjectSelected: 1 }).toArray();
+            const s1Contribs = allContribs.filter(c => !c.semester || c.semester === 1);
+            console.log(`📚 Contributions S1 (fallback) pour ${studentSelected}:`, s1Contribs.length);
+            return res.json({ contributions: s1Contribs });
+        }
+        
+        console.log(`📚 Contributions S${semNum} pour ${studentSelected}:`, contributions.length);
         res.json({ contributions });
     } catch (error) {
         console.error('Error fetching student contributions:', error);
@@ -1010,14 +1045,22 @@ app.post('/api/generateSingleWord', async (req, res) => {
         if (semesterNum === 2) {
             semesterFilter = { semester: 2 };
         } else {
-            // S1: contributions sans semester OU semester=1
-            semesterFilter = { $or: [{ semester: { $exists: false } }, { semester: 1 }] };
+            // S1: semester=1 ou null (anciens enregistrements sans champ semester)
+            semesterFilter = { semester: { $in: [1, null] } };
         }
-        const studentContributions = await contributionsCollection.find({
+        let studentContributions = await contributionsCollection.find({
             studentSelected: studentSelected,
             sectionSelected: sectionSelected,
             ...semesterFilter
         }).toArray();
+        // Fallback S1: anciens enregistrements sans champ semester
+        if (semesterNum === 1 && studentContributions.length === 0) {
+            studentContributions = await contributionsCollection.find({
+                studentSelected: studentSelected,
+                sectionSelected: sectionSelected
+            }).toArray();
+            studentContributions = studentContributions.filter(c => !c.semester || c.semester === 1);
+        }
         
         if (studentContributions.length === 0) {
             console.warn(`⚠️ No contributions found for ${studentSelected}, generating empty document`);
