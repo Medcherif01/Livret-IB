@@ -295,37 +295,34 @@ async function fetchImage(url) {
             return null;
         }
         
-        console.log(`📐 Redimensionnement et compression de l'image...`);
+        console.log(`📐 Redimensionnement de l'image pour le livret Word...`);
         
-        // SOLUTION DÉFINITIVE: Redimensionner et compresser l'image avec Sharp
-        // Taille: 60x60 pixels en JPEG qualité 75% pour un fichier plus léger
+        // Photo portrait : 150×190 px, fond blanc (élimine transparence PNG → fond noir)
+        // Qualité JPEG élevée pour une bonne netteté dans le document Word
         const resizedBuffer = await sharp(originalBuffer)
-            .resize(60, 60, {
-                fit: 'cover',
-                position: 'center'
+            .resize(150, 190, {
+                fit: 'contain',      // contient l'image sans recadrage brutal
+                position: 'center',
+                background: { r: 255, g: 255, b: 255, alpha: 1 } // fond blanc
             })
+            .flatten({ background: { r: 255, g: 255, b: 255 } }) // aplatit la transparence
             .jpeg({ 
-                quality: 75,
-                mozjpeg: true  // Utiliser mozjpeg pour une meilleure compression
+                quality: 92          // haute qualité, netteté préservée
             })
             .toBuffer();
         
-        console.log(`✅ Image redimensionnée: ${originalBuffer.length} → ${resizedBuffer.length} bytes (60x60px, JPEG 75%)`);
+        console.log(`✅ Image redimensionnée: ${originalBuffer.length} → ${resizedBuffer.length} bytes (150×190px, JPEG 92%)`);
         
-        // Vérifier la taille finale (sécurité supplémentaire)
-        const MAX_IMAGE_SIZE = 30 * 1024; // 30KB max après compression
+        // Si le fichier dépasse 150 KB, recompresser légèrement (cas rare)
+        const MAX_IMAGE_SIZE = 150 * 1024;
         if (resizedBuffer.length > MAX_IMAGE_SIZE) {
-            console.log(`⚠️ Image encore trop grande (${resizedBuffer.length} bytes), compression supplémentaire...`);
-            // Réduire encore la qualité si trop grande
+            console.log(`⚠️ Image encore trop grande (${resizedBuffer.length} bytes), légère recompression...`);
             const finalBuffer = await sharp(originalBuffer)
-                .resize(60, 60, { fit: 'cover', position: 'center' })
-                .jpeg({ 
-                    quality: 60,
-                    mozjpeg: true
-                })
+                .resize(150, 190, { fit: 'contain', position: 'center', background: { r: 255, g: 255, b: 255, alpha: 1 } })
+                .flatten({ background: { r: 255, g: 255, b: 255 } })
+                .jpeg({ quality: 80 })
                 .toBuffer();
-            
-            console.log(`✅ Image re-compressée: ${resizedBuffer.length} → ${finalBuffer.length} bytes (JPEG 60%)`);
+            console.log(`✅ Image recompressée: ${resizedBuffer.length} → ${finalBuffer.length} bytes (JPEG 80%)`);
             return finalBuffer;
         }
         
@@ -697,7 +694,7 @@ async function createWordDocumentBuffer(studentName, className, studentBirthdate
                         return capturedImageBuffer;
                     },
                     getSize: function(img, tagValue, tagName) {
-                        return [80, 100]; // largeur x hauteur en pixels
+                        return [150, 190]; // largeur x hauteur en pixels (portrait, haute qualité)
                     }
                 };
                 const imageModule = new ImageModule(imageModuleOpts);
