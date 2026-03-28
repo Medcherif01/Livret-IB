@@ -254,20 +254,10 @@ function calculateFinalNote(totalLevel, maxNote = 8) {
 
 async function fetchImage(url) {
     try {
-        // Convertir les URLs Google Drive au format téléchargeable
-        let downloadUrl = url;
-        if (url.includes('googleusercontent.com/d/')) {
-            // Format: https://lh3.googleusercontent.com/d/FILE_ID
-            // On garde l'URL telle quelle, mais on force le téléchargement avec des headers
-            downloadUrl = url;
-            console.log(`📷 Google Drive image détectée`);
-        } else if (url.includes('drive.google.com/file/d/')) {
-            // Format alternatif: https://drive.google.com/file/d/FILE_ID/view
-            const fileId = url.match(/\/d\/([^\/]+)/)?.[1];
-            if (fileId) {
-                downloadUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
-                console.log(`📷 URL Google Drive convertie pour téléchargement`);
-            }
+        // Convertir les URLs Google Drive au format téléchargeable direct
+        const downloadUrl = toGoogleDriveDirectUrl(url);
+        if (downloadUrl !== url) {
+            console.log(`📷 URL Google Drive convertie: ${downloadUrl.substring(0, 80)}`);
         }
         
         console.log(`📷 Fetching image: ${downloadUrl.substring(0, 60)}...`);
@@ -582,6 +572,81 @@ function prepareWordData(studentName, className, studentBirthdate, originalContr
 // URL du template Semestre 2 (hardcodée + variable d'env en override)
 const TEMPLATE_S2_DEFAULT_URL = 'https://lh3.googleusercontent.com/d/1FHsw_BxQfWnXJOmKME8TvqrGjRHcI7-1';
 
+/**
+ * Convertit une URL Google Drive (viewer/lh3) en URL de téléchargement direct.
+ * Exemples reconnus:
+ *   https://lh3.googleusercontent.com/d/FILE_ID
+ *   https://drive.google.com/file/d/FILE_ID/view
+ *   https://drive.google.com/open?id=FILE_ID
+ * → https://drive.google.com/uc?export=download&id=FILE_ID
+ */
+function toGoogleDriveDirectUrl(url) {
+    if (!url) return url;
+    // Déjà une URL de téléchargement direct
+    if (url.includes('drive.google.com/uc') || url.includes('export=download')) return url;
+    // lh3.googleusercontent.com/d/FILE_ID
+    const lh3Match = url.match(/lh3\.googleusercontent\.com\/d\/([A-Za-z0-9_-]+)/);
+    if (lh3Match) {
+        return `https://drive.google.com/uc?export=download&id=${lh3Match[1]}`;
+    }
+    // drive.google.com/file/d/FILE_ID/...
+    const driveMatch = url.match(/drive\.google\.com\/file\/d\/([A-Za-z0-9_-]+)/);
+    if (driveMatch) {
+        return `https://drive.google.com/uc?export=download&id=${driveMatch[1]}`;
+    }
+    // drive.google.com/open?id=FILE_ID
+    const openMatch = url.match(/drive\.google\.com\/open\?id=([A-Za-z0-9_-]+)/);
+    if (openMatch) {
+        return `https://drive.google.com/uc?export=download&id=${openMatch[1]}`;
+    }
+    return url; // URL inconnue, retourner telle quelle
+}
+
+/**
+ * Télécharge un template Word (.docx) depuis une URL (Google Drive ou autre).
+ * Gère les redirections et retourne un Buffer.
+ */
+async function fetchTemplate(rawUrl) {
+    const url = toGoogleDriveDirectUrl(rawUrl);
+    console.log(`📁 Template URL (direct): ${url.substring(0, 80)}...`);
+    const response = await fetch(url, {
+        headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/octet-stream,*/*'
+        },
+        redirect: 'follow'
+    });
+    if (!response.ok) {
+        throw new Error(`Failed to fetch template: ${response.status} ${response.statusText} (${url})`);
+    }
+    // Vérifier que ce n'est pas une page HTML (indique une redirection ratée)
+    const contentType = response.headers.get('content-type') || '';
+    const buffer = Buffer.from(await response.arrayBuffer());
+    if (contentType.includes('text/html') || (buffer.length < 5000 && buffer.toString('utf8', 0, 5) !== 'PK\x03\x04')) {
+        // Google Drive renvoie parfois une page de confirmation pour les gros fichiers
+        // Essayer avec le lien de confirmation
+        const fileIdMatch = url.match(/[?&]id=([A-Za-z0-9_-]+)/);
+        if (fileIdMatch) {
+            const confirmUrl = `https://drive.google.com/uc?export=download&confirm=t&id=${fileIdMatch[1]}`;
+            console.log(`⚠️ Redirection HTML détectée, tentative avec confirmation: ${confirmUrl.substring(0,80)}`);
+            const confirmResponse = await fetch(confirmUrl, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                    'Accept': 'application/octet-stream,*/*'
+                },
+                redirect: 'follow'
+            });
+            if (!confirmResponse.ok) throw new Error(`Template fetch (confirm) failed: ${confirmResponse.status}`);
+            const confirmBuffer = Buffer.from(await confirmResponse.arrayBuffer());
+            console.log(`✅ Template loaded (confirm): ${confirmBuffer.length} bytes`);
+            return confirmBuffer;
+        }
+        throw new Error(`Template returned HTML instead of DOCX (${buffer.length} bytes). Check Google Drive sharing permissions.`);
+    }
+    console.log(`✅ Template loaded: ${buffer.length} bytes`);
+    return buffer;
+}
+
 async function createWordDocumentBuffer(studentName, className, studentBirthdate, imageBuffer, originalContributions, semester = 1) {
     console.log(`🎓 Class: ${className} - Semestre ${semester}`);
     
@@ -601,20 +666,8 @@ async function createWordDocumentBuffer(studentName, className, studentBirthdate
         
         console.log(`📁 Loading template from: ${TEMPLATE_URL.substring(0, 60)}...`);
         
-        // Télécharger le template
-        const templateResponse = await fetch(TEMPLATE_URL, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            },
-            redirect: 'follow'
-        });
-        if (!templateResponse.ok) {
-            throw new Error(`Failed to fetch template: ${templateResponse.status} ${templateResponse.statusText}`);
-        }
-        
-        const templateArrayBuffer = await templateResponse.arrayBuffer();
-        const templateContent = Buffer.from(templateArrayBuffer);
-        console.log(`✅ Template loaded: ${templateContent.length} bytes`);
+        // Télécharger le template (gestion Google Drive + redirections)
+        const templateContent = await fetchTemplate(TEMPLATE_URL);
         
         const zip = new PizZip(templateContent);
         console.log(`✅ PizZip created successfully`);
@@ -698,13 +751,8 @@ async function createWordDocumentBufferNoImage(studentName, className, studentBi
         if (!TEMPLATE_URL) throw new Error('TEMPLATE_URL not found');
     }
     
-    const templateResponse = await fetch(TEMPLATE_URL, {
-        headers: { 'User-Agent': 'Mozilla/5.0' },
-        redirect: 'follow'
-    });
-    if (!templateResponse.ok) throw new Error(`Failed to fetch template: ${templateResponse.status}`);
-    
-    const templateContent = Buffer.from(await templateResponse.arrayBuffer());
+    // Télécharger le template (gestion Google Drive + redirections)
+    const templateContent = await fetchTemplate(TEMPLATE_URL);
     const zip = new PizZip(templateContent);
     
     const doc = new DocxTemplater(zip, {
