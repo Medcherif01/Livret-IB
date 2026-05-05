@@ -113,129 +113,136 @@ const criteriaBySubject = {
 };
 
 // --- Connexion Base de Données ---
-let mongoClient = null;
+// IMPORTANT: Vercel serverless - cache client dans la portée du module (global)
+// pour réutiliser la connexion entre les invocations à chaud (warm starts)
+let mongoClient = global._mongoClient || null;
 let connectionAttempts = 0;
 const MAX_CONNECTION_ATTEMPTS = 3;
-const CONNECTION_RETRY_DELAY = 2000; // 2 secondes
+const CONNECTION_RETRY_DELAY = 1000; // 1 seconde (réduit pour serverless)
+// Promise de connexion en cours pour éviter les connexions parallèles
+let _connectingPromise = null;
 
 async function connectToMongo(retryCount = 0) {
     if (!MONGODB_URI) {
         console.error("❌ FATAL ERROR: MONGODB_URI is not defined!");
-        console.error("📋 Without MONGODB_URI, the application cannot function.");
         console.error("📋 Please set MONGODB_URI in Vercel Environment Variables.");
         return false;
     }
-    
+
+    // Si une connexion est déjà en cours, attendre qu'elle se termine
+    if (_connectingPromise) {
+        console.log('⏳ Connection already in progress, waiting...');
+        return _connectingPromise;
+    }
+
+    _connectingPromise = _doConnect(retryCount);
+    const result = await _connectingPromise;
+    _connectingPromise = null;
+    return result;
+}
+
+async function _doConnect(retryCount = 0) {
     connectionAttempts++;
-    console.log(`🔄 MongoDB connection attempt ${connectionAttempts}/${MAX_CONNECTION_ATTEMPTS}...`);
-    
+    console.log(`🔄 MongoDB connection attempt ${connectionAttempts}...`);
+
     try {
-        // Configuration optimale pour MongoDB Atlas
+        // Configuration optimisée pour Vercel serverless + MongoDB Atlas
         const clientOptions = {
-            serverSelectionTimeoutMS: 10000, // 10 secondes timeout
-            socketTimeoutMS: 45000,
-            maxPoolSize: 10,
-            minPoolSize: 2,
+            serverSelectionTimeoutMS: 8000,
+            socketTimeoutMS: 30000,
+            connectTimeoutMS: 8000,
+            maxPoolSize: 5,       // Réduit pour serverless
+            minPoolSize: 0,       // 0 pour serverless (pas de connexions persistantes idle)
+            maxIdleTimeMS: 30000, // Fermer les connexions idle après 30s
             retryWrites: true,
             retryReads: true,
             w: 'majority'
         };
-        
+
+        // Réutiliser le client global si déjà connecté (warm start)
+        if (global._mongoClient) {
+            try {
+                await global._mongoClient.db('admin').command({ ping: 1 });
+                console.log('✅ Réutilisation de la connexion MongoDB existante (warm start)');
+                mongoClient = global._mongoClient;
+                const db = mongoClient.db(dbName);
+                contributionsCollection = db.collection(contributionsCollectionName);
+                studentsCollection = db.collection(studentsCollectionName);
+                isDbConnected = true;
+                connectionAttempts = 0;
+                return true;
+            } catch (pingErr) {
+                console.log('⚠️ Connexion existante invalide, reconnexion...');
+                try { await global._mongoClient.close(); } catch(e) {}
+                global._mongoClient = null;
+            }
+        }
+
         mongoClient = new MongoClient(MONGODB_URI, clientOptions);
-        
         console.log('🔌 Connecting to MongoDB Atlas...');
         await mongoClient.connect();
-        
-        console.log('✅ Successfully connected to MongoDB!');
-        console.log(`📊 Database: ${dbName}`);
-        
+
+        // Ping pour valider la connexion
+        await mongoClient.db('admin').command({ ping: 1 });
+        console.log('✅ MongoDB connected and ping OK');
+
+        // Stocker dans le global pour réutilisation (serverless warm start)
+        global._mongoClient = mongoClient;
+
         const db = mongoClient.db(dbName);
         contributionsCollection = db.collection(contributionsCollectionName);
         studentsCollection = db.collection(studentsCollectionName);
         isDbConnected = true;
-        
-        // Test de ping pour vérifier la connexion
-        await db.admin().ping();
-        console.log('✅ MongoDB ping successful');
-        
-        // Créer les index
-        try {
-            console.log('🔧 Setting up database indexes...');
-            const idx = await contributionsCollection.indexes();
-            const legacy = idx.find(i => i.unique && i.key && i.key.studentSelected === 1 && i.key.subjectSelected === 1 && Object.keys(i.key).length === 2);
-            if (legacy) {
-                try {
-                    await contributionsCollection.dropIndex(legacy.name);
-                    console.log(`ℹ️ Dropped legacy unique index: ${legacy.name}`);
-                } catch (dropErr) {
-                    console.warn('⚠️ Could not drop legacy index (will continue):', dropErr.message);
-                }
-            }
-            // Index unique incluant semester pour permettre S1 et S2 indépendants
-            // Supprimer l'ancien index sans semester s'il existe
-            try {
-                await contributionsCollection.dropIndex('uniq_student_subject_class_section');
-                console.log('ℹ️ Ancien index sans semester supprimé');
-            } catch(e) { /* index n'existe pas, c'est OK */ }
-            await contributionsCollection.createIndex(
-                { studentSelected: 1, subjectSelected: 1, classSelected: 1, sectionSelected: 1, semester: 1 },
-                { unique: true, name: 'uniq_student_subject_class_section_semester' }
-            );
-            await studentsCollection.createIndex({ studentSelected: 1 }, { unique: true });
-            console.log('✅ Database indexes created successfully');
-        } catch (indexError) {
-            console.log('ℹ️ Indexes already exist (this is OK)');
-        }
-        
-        connectionAttempts = 0; // Reset counter on success
+
+        // Créer les index (ne bloque pas la réponse)
+        _setupIndexes().catch(err => console.warn('⚠️ Index setup error (non-fatal):', err.message));
+
+        connectionAttempts = 0;
         return true;
-        
+
     } catch (error) {
-        console.error('❌ MongoDB connection failed!');
-        console.error('Error type:', error.name);
-        console.error('Error message:', error.message);
-        console.error('Error code:', error.code);
-        
-        if (error.message.includes('authentication')) {
-            console.error('🔐 Authentication failed - check username and password in MONGODB_URI');
-        } else if (error.message.includes('network') || error.message.includes('ENOTFOUND')) {
-            console.error('🌐 Network error - check internet connection and MongoDB Atlas network access');
-        } else if (error.message.includes('timeout')) {
-            console.error('⏱️ Connection timeout - MongoDB Atlas might be unreachable');
-        }
-        
+        console.error('❌ MongoDB connection failed:', error.message);
         isDbConnected = false;
-        
-        // Retry logic
+        global._mongoClient = null;
+
         if (retryCount < MAX_CONNECTION_ATTEMPTS - 1) {
-            console.log(`⏳ Retrying in ${CONNECTION_RETRY_DELAY/1000} seconds...`);
+            console.log(`⏳ Retry in ${CONNECTION_RETRY_DELAY/1000}s...`);
             await new Promise(resolve => setTimeout(resolve, CONNECTION_RETRY_DELAY));
-            return connectToMongo(retryCount + 1);
-        } else {
-            console.error(`❌ Failed to connect to MongoDB after ${MAX_CONNECTION_ATTEMPTS} attempts`);
-            console.error('📋 Please verify:');
-            console.error('   1. MONGODB_URI is correctly set in Vercel Environment Variables');
-            console.error('   2. MongoDB Atlas cluster is running');
-            console.error('   3. Network Access allows connections from 0.0.0.0/0');
-            console.error('   4. Database user credentials are correct');
-            return false;
+            return _doConnect(retryCount + 1);
         }
+        console.error(`❌ Failed after ${MAX_CONNECTION_ATTEMPTS} attempts. Check MONGODB_URI and Atlas Network Access (0.0.0.0/0).`);
+        return false;
     }
 }
 
-// Reconnection handler for connection drops
+async function _setupIndexes() {
+    try {
+        const idx = await contributionsCollection.indexes();
+        const legacy = idx.find(i => i.unique && i.key && i.key.studentSelected === 1 && i.key.subjectSelected === 1 && Object.keys(i.key).length === 2);
+        if (legacy) {
+            try { await contributionsCollection.dropIndex(legacy.name); } catch(e) {}
+        }
+        try { await contributionsCollection.dropIndex('uniq_student_subject_class_section'); } catch(e) {}
+        await contributionsCollection.createIndex(
+            { studentSelected: 1, subjectSelected: 1, classSelected: 1, sectionSelected: 1, semester: 1 },
+            { unique: true, name: 'uniq_student_subject_class_section_semester' }
+        );
+        await studentsCollection.createIndex({ studentSelected: 1 }, { unique: true });
+        console.log('✅ Database indexes OK');
+    } catch (e) {
+        console.log('ℹ️ Indexes already exist or error (OK):', e.message);
+    }
+}
+
+// Reconnection handler (non-serverless uniquement)
 function setupMongoReconnection() {
-    if (mongoClient) {
+    if (mongoClient && !process.env.VERCEL) {
         mongoClient.on('close', () => {
             console.log('⚠️ MongoDB connection closed');
             isDbConnected = false;
-            // Attempt reconnection
-            setTimeout(() => {
-                console.log('🔄 Attempting to reconnect to MongoDB...');
-                connectToMongo();
-            }, 5000);
+            global._mongoClient = null;
+            setTimeout(() => connectToMongo(), 5000);
         });
-        
         mongoClient.on('error', (error) => {
             console.error('❌ MongoDB client error:', error.message);
             isDbConnected = false;
@@ -773,13 +780,21 @@ app.use(express.static(PUBLIC_DIR));
 
 // Middleware pour garantir la connexion MongoDB avant les requêtes API
 async function ensureDbConnection(req, res, next) {
-    // Si déjà connecté, continuer
+    // Vérifier si la connexion est valide (ping rapide si déjà connecté)
     if (isDbConnected && mongoClient && contributionsCollection && studentsCollection) {
-        return next();
+        try {
+            // Ping léger pour vérifier que la connexion est toujours active
+            await mongoClient.db('admin').command({ ping: 1 });
+            return next();
+        } catch (pingErr) {
+            console.warn('⚠️ Connexion perdue, reconnexion...');
+            isDbConnected = false;
+            global._mongoClient = null;
+        }
     }
-    
+
     console.log('⚠️ Database not connected, attempting connection...');
-    
+
     try {
         const connected = await connectToMongo();
         if (connected) {
@@ -787,15 +802,15 @@ async function ensureDbConnection(req, res, next) {
             return next();
         } else {
             console.error('❌ Failed to establish database connection in middleware');
-            return res.status(503).json({ 
+            return res.status(503).json({
                 error: 'Service temporairement indisponible',
-                details: 'Impossible de se connecter à la base de données. Veuillez réessayer dans quelques instants.',
+                details: 'Impossible de se connecter à la base de données. Vérifiez MONGODB_URI dans les variables Vercel.',
                 dbConnected: false
             });
         }
     } catch (error) {
-        console.error('❌ Error in database connection middleware:', error);
-        return res.status(503).json({ 
+        console.error('❌ Error in database connection middleware:', error.message);
+        return res.status(503).json({
             error: 'Service temporairement indisponible',
             details: 'Erreur lors de la connexion à la base de données.',
             dbConnected: false
@@ -979,7 +994,7 @@ app.post('/api/fetchStudentContributions', async (req, res) => {
             filter.semester = { $in: [1, null] };
         }
         
-        const contributions = await contributionsCollection.find(filter)
+        let contributions = await contributionsCollection.find(filter)
             .sort({ subjectSelected: 1 })
             .toArray();
         
@@ -989,13 +1004,32 @@ app.post('/api/fetchStudentContributions', async (req, res) => {
             if (classSelected) filterNoSem.classSelected = classSelected;
             if (sectionSelected) filterNoSem.sectionSelected = sectionSelected;
             const allContribs = await contributionsCollection.find(filterNoSem).sort({ subjectSelected: 1 }).toArray();
-            const s1Contribs = allContribs.filter(c => !c.semester || c.semester === 1);
-            console.log(`📚 Contributions S1 (fallback) pour ${studentSelected}:`, s1Contribs.length);
-            return res.json({ contributions: s1Contribs });
+            contributions = allContribs.filter(c => !c.semester || c.semester === 1);
+            console.log(`📚 Contributions S1 (fallback) pour ${studentSelected}:`, contributions.length);
         }
-        
-        console.log(`📚 Contributions S${semNum} pour ${studentSelected}:`, contributions.length);
-        res.json({ contributions });
+
+        // DÉDUPLICATION: garder uniquement la contribution la plus récente par matière
+        // (évite les doublons en cas de données corrompues dans la DB)
+        const seen = new Map();
+        for (const contrib of contributions) {
+            const key = contrib.subjectSelected;
+            if (!seen.has(key)) {
+                seen.set(key, contrib);
+            } else {
+                // Garder la plus récente (timestamp le plus élevé)
+                const existing = seen.get(key);
+                const existingTime = existing.timestamp ? new Date(existing.timestamp).getTime() : 0;
+                const newTime = contrib.timestamp ? new Date(contrib.timestamp).getTime() : 0;
+                if (newTime > existingTime) {
+                    seen.set(key, contrib);
+                }
+            }
+        }
+        const dedupedContributions = Array.from(seen.values())
+            .sort((a, b) => (a.subjectSelected || '').localeCompare(b.subjectSelected || ''));
+
+        console.log(`📚 Contributions S${semNum} pour ${studentSelected}: ${contributions.length} → ${dedupedContributions.length} (après dédup)`);
+        res.json({ contributions: dedupedContributions });
     } catch (error) {
         console.error('Error fetching student contributions:', error);
         // Retourner un objet avec tableau vide au lieu d'erreur 500

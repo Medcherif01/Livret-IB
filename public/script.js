@@ -531,10 +531,16 @@ function goBackToStudent() {
 function handleSemesterChange(semester) {
     currentSemester = semester;
     updateSemesterUI();
-    
+
     // Afficher les boutons de section
     document.getElementById('step0b').style.display = 'block';
-    
+
+    // Réinitialiser le verrou et recharger les matières si un élève est sélectionné
+    _isPopulatingSubjects = false;
+    if (currentData.studentSelected && currentData.classSelected) {
+        populateSubjects();
+    }
+
     console.log(`📅 Semestre sélectionné: ${semester}`);
 }
 
@@ -972,75 +978,105 @@ const subjectIcons = {
 
 // Stocker les matières complétées par élève
 let completedSubjects = {};
+// Verrou pour éviter les appels parallèles à populateSubjects (cause de duplication)
+let _isPopulatingSubjects = false;
 
 async function populateSubjects() {
-    const classSelected = currentData.classSelected;
-    const studentSelected = currentData.studentSelected;
-    const subjectsGrid = document.getElementById("subjectsGrid");
-    
-    if (!subjectsGrid) {
-        console.error("Element subjectsGrid not found");
+    // ANTI-DUPLICATION : si déjà en cours d'exécution, ignorer cet appel
+    if (_isPopulatingSubjects) {
+        console.log('⏭️ populateSubjects déjà en cours, appel ignoré');
         return;
     }
-    
-    subjectsGrid.innerHTML = "";
-    
-    if (classSelected && studentSelected && subjectsByClass[classSelected]) {
-        // Récupérer les contributions existantes pour cet élève
-        try {
-            const response = await apiCall('fetchStudentContributions', {
-                studentSelected: studentSelected,
-                classSelected: classSelected,
-                sectionSelected: currentData.sectionSelected,
-                semester: currentSemester
-            });
-            
-            // Marquer les matières avec des contributions
-            completedSubjects[studentSelected] = {};
-            if (response && response.contributions && Array.isArray(response.contributions)) {
-                response.contributions.forEach(contrib => {
-                    if (contrib.subjectSelected) {
-                        completedSubjects[studentSelected][contrib.subjectSelected] = true;
-                    }
-                });
-            }
-            console.log(`✅ Matières complétées pour ${studentSelected}:`, Object.keys(completedSubjects[studentSelected] || {}));
-        } catch (error) {
-            console.error("Erreur lors de la récupération des contributions:", error);
-            completedSubjects[studentSelected] = {};
+    _isPopulatingSubjects = true;
+
+    try {
+        const classSelected = currentData.classSelected;
+        const studentSelected = currentData.studentSelected;
+        const subjectsGrid = document.getElementById("subjectsGrid");
+
+        if (!subjectsGrid) {
+            console.error("Element subjectsGrid not found");
+            return;
         }
-        
-        // Créer les cartes de matières
-        subjectsByClass[classSelected].forEach(subject => {
-            const card = document.createElement("div");
-            card.className = "subject-card";
-            
-            // Marquer comme complétée si elle a déjà une contribution
-            const isCompleted = completedSubjects[studentSelected] && completedSubjects[studentSelected][subject];
-            if (isCompleted) {
-                card.classList.add("completed");
+
+        // Vider la grille AVANT l'appel async pour éviter l'affichage partiel
+        subjectsGrid.innerHTML = "";
+
+        if (classSelected && studentSelected && subjectsByClass[classSelected]) {
+            // Récupérer les contributions existantes pour cet élève
+            try {
+                const response = await apiCall('fetchStudentContributions', {
+                    studentSelected: studentSelected,
+                    classSelected: classSelected,
+                    sectionSelected: currentData.sectionSelected,
+                    semester: currentSemester
+                });
+
+                // Vérifier que l'élève/classe n'ont pas changé pendant l'appel async
+                if (currentData.studentSelected !== studentSelected || currentData.classSelected !== classSelected) {
+                    console.log('⚠️ Sélection changée pendant le chargement, annulation');
+                    return;
+                }
+
+                // Marquer les matières avec des contributions
+                completedSubjects[studentSelected] = {};
+                if (response && response.contributions && Array.isArray(response.contributions)) {
+                    // Déduplication côté client également
+                    const seen = new Set();
+                    response.contributions.forEach(contrib => {
+                        if (contrib.subjectSelected && !seen.has(contrib.subjectSelected)) {
+                            seen.add(contrib.subjectSelected);
+                            completedSubjects[studentSelected][contrib.subjectSelected] = true;
+                        }
+                    });
+                }
+                console.log(`✅ Matières complétées pour ${studentSelected}:`, Object.keys(completedSubjects[studentSelected] || {}));
+            } catch (error) {
+                console.error("Erreur lors de la récupération des contributions:", error);
+                completedSubjects[studentSelected] = {};
             }
-            
-            // Marquer comme sélectionnée si c'est la matière actuelle
-            if (currentData.subjectSelected === subject) {
-                card.classList.add("selected");
-            }
-            
-            const icon = subjectIcons[subject] || "📖";
-            
-            card.innerHTML = `
-                <div class="subject-icon">${icon}</div>
-                <h3>${subject}</h3>
-            `;
-            
-            card.onclick = () => handleSubjectCardClick(subject);
-            
-            subjectsGrid.appendChild(card);
-        });
-        
-        document.getElementById("step2").style.display = "block";
-    } else {
-        document.getElementById("step2").style.display = "none";
+
+            // Vider à nouveau la grille avant de la remplir (sécurité)
+            subjectsGrid.innerHTML = "";
+
+            // Créer les cartes de matières (une seule fois, sans doublons)
+            const subjectsToShow = subjectsByClass[classSelected];
+            const uniqueSubjects = [...new Set(subjectsToShow)]; // Dédoublonnage préventif
+
+            uniqueSubjects.forEach(subject => {
+                const card = document.createElement("div");
+                card.className = "subject-card";
+
+                // Marquer comme complétée si elle a déjà une contribution
+                const isCompleted = completedSubjects[studentSelected] && completedSubjects[studentSelected][subject];
+                if (isCompleted) {
+                    card.classList.add("completed");
+                }
+
+                // Marquer comme sélectionnée si c'est la matière actuelle
+                if (currentData.subjectSelected === subject) {
+                    card.classList.add("selected");
+                }
+
+                const icon = subjectIcons[subject] || "📖";
+
+                card.innerHTML = `
+                    <div class="subject-icon">${icon}</div>
+                    <h3>${subject}</h3>
+                `;
+
+                card.onclick = () => handleSubjectCardClick(subject);
+
+                subjectsGrid.appendChild(card);
+            });
+
+            document.getElementById("step2").style.display = "block";
+        } else {
+            document.getElementById("step2").style.display = "none";
+        }
+    } finally {
+        // Toujours libérer le verrou, même en cas d'erreur
+        _isPopulatingSubjects = false;
     }
 }
 
@@ -1943,10 +1979,13 @@ function resetOnClassChange() {
 }
 
 function resetOnStudentChange() {
-    // Plus besoin de réinitialiser le selector (on utilise des cartes)
+    // Réinitialiser le verrou populateSubjects pour permettre un nouvel appel
+    _isPopulatingSubjects = false;
     // Réinitialiser la grille de cartes
     const cards = document.querySelectorAll('.subject-card');
     cards.forEach(card => card.classList.remove('selected'));
+    const subjectsGrid = document.getElementById("subjectsGrid");
+    if (subjectsGrid) subjectsGrid.innerHTML = "";
     document.getElementById('step2').style.display = "none";
     studentInfoContainer.style.display = "none";
     currentData.studentSelected = studentSelector.value;
