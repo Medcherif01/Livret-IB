@@ -196,6 +196,9 @@
             <!-- Section Française -->
             <section id="criteriaTable" class="french-section">
                 <h2>Critères d'Évaluation (Matière)</h2>
+                <div id="s2InfoBanner" style="display:none; background:#d6e4ff; border:1px solid #4096ff; border-radius:6px; padding:8px 14px; margin-bottom:12px; font-size:0.92em; color:#003a8c;">
+                    📘 <strong>Semestre 2</strong> — Les notes du Semestre 1 sont affichées en bleu (lecture seule). Veuillez saisir uniquement les notes du Semestre 2.
+                </div>
                 <div style="margin-bottom: 15px; padding: 10px; background-color: #f8f9fa; border-radius: 5px;">
                     <label style="margin-right: 15px;">
                         <strong>Nombre d'unités - Semestre 1:</strong>
@@ -259,7 +262,7 @@
                     </tbody>
                 </table>
                 <h3>Commentaires</h3>
-                <textarea id="teacherComment" rows="4" placeholder="Écrivez vos commentaires ici..." onchange="handleCommentChange(this.value)"></textarea>
+                <textarea id="teacherComment" rows="4" placeholder="Écrivez vos commentaires ici..." oninput="handleCommentChange(this.value)" onchange="handleCommentChange(this.value)"></textarea>
                 <h3>Nom de l'enseignant</h3>
                 <input id="teacherName" placeholder="Entrez votre nom" onchange="handleTeacherNameChange(this.value)">
                 <div style="text-align: right; margin-top: 20px;">
@@ -270,6 +273,9 @@
             <!-- Section Arabe -->
             <section id="criteriaTableArabic" class="arabic-section" style="display: none; direction: rtl; text-align: right;">
                 <h2>معايير التقييم (المادة)</h2>
+                <div id="s2InfoBannerArabic" style="display:none; background:#d6e4ff; border:1px solid #4096ff; border-radius:6px; padding:8px 14px; margin-bottom:12px; font-size:0.92em; color:#003a8c; direction:rtl;">
+                    📘 <strong>الفصل الثاني</strong> — درجات الفصل الأول معروضة باللون الأزرق (للقراءة فقط). يرجى إدخال درجات الفصل الثاني فقط.
+                </div>
                 <div style="margin-bottom: 15px; padding: 10px; background-color: #f8f9fa; border-radius: 5px; direction: rtl;">
                     <label style="margin-left: 15px;">
                         <strong>عدد الوحدات - الفصل الأول:</strong>
@@ -333,7 +339,7 @@
                     </tbody>
                 </table>
                 <h3>التعليقات</h3>
-                <textarea id="teacherCommentArabic" rows="4" placeholder="اكتب تعليقاتك هنا..." onchange="handleCommentChange(this.value)" dir="rtl" style="text-align: right;"></textarea>
+                <textarea id="teacherCommentArabic" rows="4" placeholder="اكتب تعليقاتك هنا..." oninput="handleCommentChange(this.value)" onchange="handleCommentChange(this.value)" dir="rtl" style="text-align: right;"></textarea>
                 <h3>اسم المعلم</h3>
                 <input id="teacherNameArabic" placeholder="أدخل اسمك" onchange="handleTeacherNameChange(this.value)">
                 <div style="text-align: left; margin-top: 20px;">

@@ -209,10 +209,28 @@ function handleStudentBirthdateChange(value) {
 function handleCommentChange(value) {
     currentData.teacherComment = value;
     
-    // Synchroniser avec le champ approprié
+    // Synchroniser avec le champ approprié (arabe <-> français)
     const isArabicSubject = currentData.subjectSelected === 'Acquisition de langue (اللغة العربية)';
     const otherField = isArabicSubject ? document.getElementById('teacherComment') : document.getElementById('teacherCommentArabic');
     if (otherField) otherField.value = value;
+}
+
+// Synchroniser les champs commentaire/nom depuis le DOM vers currentData (appelé avant toute sauvegarde)
+function syncFormDataFromDOM() {
+    const isArabicSubject = currentData.subjectSelected === 'Acquisition de langue (اللغة العربية)';
+    // Commentaire
+    const commentEl = isArabicSubject ? document.getElementById('teacherCommentArabic') : document.getElementById('teacherComment');
+    if (commentEl) currentData.teacherComment = commentEl.value;
+    // Nom enseignant
+    const nameEl = isArabicSubject ? document.getElementById('teacherNameArabic') : document.getElementById('teacherName');
+    if (nameEl && nameEl.value.trim()) {
+        currentData.teacherName = nameEl.value.trim();
+        localStorage.setItem('teacherName', currentData.teacherName);
+    }
+    // Date de naissance
+    if (studentBirthdateInput && studentBirthdateInput.value) {
+        currentData.studentBirthdate = studentBirthdateInput.value;
+    }
 }
 
 function handleCommunicationChange() {
@@ -569,89 +587,51 @@ function updateSemesterUI() {
     }
 }
 
-// Mode Semestre 2: Verrouiller les colonnes S1, vider commentaire/enseignant/ATL
+// Mode Semestre 2: Verrouiller les colonnes S1 (pré-remplies avec notes S1)
+// Les commentaires/ATL sont gérés par fetchData() selon les données S2 existantes
 function applySemester2Mode() {
     const isArabicSubject = currentData.subjectSelected === 'Acquisition de langue (اللغة العربية)';
     
-    // Verrouiller les inputs Semestre 1 (lecture seule)
+    // Afficher le banner S2
+    const banner = document.getElementById(isArabicSubject ? 's2InfoBannerArabic' : 's2InfoBanner');
+    if (banner) banner.style.display = 'block';
+    // Masquer le banner de l'autre section
+    const otherBanner = document.getElementById(isArabicSubject ? 's2InfoBanner' : 's2InfoBannerArabic');
+    if (otherBanner) otherBanner.style.display = 'none';
+    
+    // Verrouiller les inputs Semestre 1 (lecture seule) - ils sont déjà remplis avec les notes S1
     const sem1Selector = isArabicSubject 
-        ? '#criteriaTableBodyArabic .sem1-cell input, #criteriaTableBodyArabic .sem1-unit-cell input, #criteriaTableBodyArabic .sem1-unit input'
-        : '#criteriaTableBody .sem1-cell input, #criteriaTableBody .sem1-unit-cell input, #criteriaTableBody .sem1-unit input';
+        ? '#criteriaTableBodyArabic .sem1-cell input, #criteriaTableBodyArabic .sem1-unit-cell input, #criteriaTableBodyArabic .sem1-unit input, #criteriaTableBodyArabic .sem1-avg-input'
+        : '#criteriaTableBody .sem1-cell input, #criteriaTableBody .sem1-unit-cell input, #criteriaTableBody .sem1-unit input, #criteriaTableBody .sem1-avg-input';
     
     document.querySelectorAll(sem1Selector).forEach(input => {
         input.readOnly = true;
-        input.style.backgroundColor = '#e9ecef';
+        input.style.backgroundColor = '#d6e4ff';
         input.style.cursor = 'not-allowed';
-        input.title = 'Note Semestre 1 (lecture seule)';
+        input.title = 'Note Semestre 1 (lecture seule - importée automatiquement)';
     });
     
-    // Vider et activer les champs Semestre 2
+    // S'assurer que les champs Semestre 2 sont actifs et modifiables
     const sem2Selector = isArabicSubject
         ? '#criteriaTableBodyArabic .sem2-cell input, #criteriaTableBodyArabic .sem2-unit-cell input, #criteriaTableBodyArabic .sem2-unit input'
         : '#criteriaTableBody .sem2-cell input, #criteriaTableBody .sem2-unit-cell input, #criteriaTableBody .sem2-unit input';
     
     document.querySelectorAll(sem2Selector).forEach(input => {
         input.readOnly = false;
-        input.value = '';
         input.style.backgroundColor = '';
         input.style.cursor = '';
         input.removeAttribute('title');
     });
     
-    // Aussi vider les moyennes S2 et niveaux finaux
-    const avgSem2Selector = isArabicSubject
-        ? '#criteriaTableBodyArabic .sem2-avg-input'
-        : '#criteriaTableBody .sem2-avg-input';
-    document.querySelectorAll(avgSem2Selector).forEach(input => {
-        input.value = '';
-    });
-    
-    const finalLevelSelector = isArabicSubject
-        ? '#criteriaTableBodyArabic .final-level-input'
-        : '#criteriaTableBody .final-level-input';
-    document.querySelectorAll(finalLevelSelector).forEach(input => {
-        input.value = '';
-    });
-    
-    // Vider les champs seuil et note finale
-    const thresholdId = isArabicSubject ? 'thresholdArabic' : 'threshold';
-    const finalNoteId = isArabicSubject ? 'finalNoteArabic' : 'finalNote';
-    const thresholdEl = document.getElementById(thresholdId);
-    const finalNoteEl = document.getElementById(finalNoteId);
-    if (thresholdEl) thresholdEl.value = '';
-    if (finalNoteEl) finalNoteEl.value = '';
-    
-    // Vider commentaire, nom enseignant et ATL
-    if (!isArabicSubject) {
-        const commentEl = document.getElementById('teacherComment');
-        if (commentEl) commentEl.value = '';
-        const nameEl = document.getElementById('teacherName');
-        if (nameEl) nameEl.value = currentData.teacherName || '';
-        document.querySelectorAll('#communicationTable tbody select').forEach(s => s.value = '');
-    } else {
-        const commentElAr = document.getElementById('teacherCommentArabic');
-        if (commentElAr) commentElAr.value = '';
-        const nameElAr = document.getElementById('teacherNameArabic');
-        if (nameElAr) nameElAr.value = currentData.teacherName || '';
-        document.querySelectorAll('#communicationTableArabic tbody select').forEach(s => s.value = '');
-    }
-    
-    // Réinitialiser dans currentData
-    currentData.teacherComment = null;
-    currentData.communicationEvaluation = ['', '', '', '', ''];
-    
-    // Mettre à jour les valeurs sem2 dans currentData à null
-    ['A', 'B', 'C', 'D'].forEach(key => {
-        if (currentData.criteriaValues[key]) {
-            currentData.criteriaValues[key].sem2 = null;
-            currentData.criteriaValues[key].sem2Units = [];
-            // Recalculer le niveau final (seulement S1 pour l'instant)
-            const sem1 = currentData.criteriaValues[key].sem1;
-            currentData.criteriaValues[key].finalLevel = sem1;
-        }
-    });
-    
-    console.log('🔒 Mode Semestre 2 activé - colonnes S1 verrouillées');
+    console.log('🔒 Mode Semestre 2 activé - colonnes S1 verrouillées (notes S1 conservées en bleu)');
+}
+
+// Masquer les banners S2 (appelé quand on revient en S1)
+function hideSemester2Banners() {
+    const b1 = document.getElementById('s2InfoBanner');
+    const b2 = document.getElementById('s2InfoBannerArabic');
+    if (b1) b1.style.display = 'none';
+    if (b2) b2.style.display = 'none';
 }
 
 function handleSectionChange(value) {
@@ -1411,33 +1391,45 @@ async function fetchData() {
                 
                 if (data && !data.noDataForSubject) {
                     // Il y a déjà des données S2 sauvegardées -> les charger
+                    // Mais d'abord, écraser les valeurs S1 avec les vraies données S1
+                    ['A','B','C','D'].forEach(key => {
+                        if (!data.criteriaValues) data.criteriaValues = {};
+                        if (!data.criteriaValues[key]) data.criteriaValues[key] = {};
+                        data.criteriaValues[key].sem1 = s1CriteriaValues[key]?.sem1 ?? null;
+                        data.criteriaValues[key].sem1Units = s1CriteriaValues[key]?.sem1Units ?? [];
+                    });
                     fillFormWithData(data);
                     currentContributionId = data._id || null;
-                    // Écraser les valeurs S1 avec les vraies données S1
-                    ['A','B','C','D'].forEach(key => {
-                        if (currentData.criteriaValues[key]) {
-                            currentData.criteriaValues[key].sem1 = s1CriteriaValues[key]?.sem1 ?? null;
-                            currentData.criteriaValues[key].sem1Units = s1CriteriaValues[key]?.sem1Units ?? [];
-                        }
-                    });
                 } else {
                     // Pas encore de données S2 -> préparer le formulaire vierge avec S1 en référence
                     currentContributionId = null;
+                    // Nom enseignant conservé (localStorage)
                     teacherNameInput.value = currentData.teacherName || '';
-                    document.getElementById('teacherComment').value = '';
-                    // Pré-remplir les notes S1
+                    const teacherNameArabicEl = document.getElementById('teacherNameArabic');
+                    if (teacherNameArabicEl) teacherNameArabicEl.value = currentData.teacherName || '';
+                    // Vider le commentaire S2 (pas de données S2 existantes)
+                    const commentElS2 = document.getElementById('teacherComment');
+                    if (commentElS2) commentElS2.value = '';
+                    const commentElS2Ar = document.getElementById('teacherCommentArabic');
+                    if (commentElS2Ar) commentElS2Ar.value = '';
+                    currentData.teacherComment = null;
+                    // Vider les ATL pour S2 (nouveaux)
+                    document.querySelectorAll('#communicationTable tbody select').forEach(s => s.value = '');
+                    document.querySelectorAll('#communicationTableArabic tbody select').forEach(s => s.value = '');
+                    currentData.communicationEvaluation = ['', '', '', '', ''];
+                    // Pré-remplir les notes S1 (pour affichage en lecture seule), sem2 vide
                     ['A','B','C','D'].forEach(key => {
                         currentData.criteriaValues[key] = {
                             sem1: s1CriteriaValues[key]?.sem1 ?? null,
                             sem1Units: s1CriteriaValues[key]?.sem1Units ?? [],
                             sem2: null,
                             sem2Units: [],
-                            finalLevel: null
+                            finalLevel: s1CriteriaValues[key]?.sem1 ?? null
                         };
                     });
                 }
                 
-                // Reconstruire le tableau
+                // Reconstruire le tableau avec les notes S1 pré-remplies
                 const isArabicSubject = currentData.subjectSelected === 'Acquisition de langue (اللغة العربية)';
                 if (isArabicSubject) {
                     rebuildCriteriaTableArabic();
@@ -1445,18 +1437,21 @@ async function fetchData() {
                     rebuildCriteriaTable();
                 }
                 
-                // Verrouiller les colonnes S1
+                // Verrouiller les colonnes S1 (qui sont maintenant remplies avec les notes S1)
                 applySemester2Mode();
                 
             } else {
                 // Mode S1: comportement normal
+                hideSemester2Banners();
                 if (data && !data.noDataForSubject) {
                     fillFormWithData(data);
                     currentContributionId = data._id || null;
                 } else {
                     currentContributionId = null;
                     teacherNameInput.value = currentData.teacherName || '';
-                    document.getElementById('teacherComment').value = '';
+                    const tcEl = document.getElementById('teacherComment');
+                    if (tcEl) tcEl.value = '';
+                    currentData.teacherComment = null;
                     calculateTotals();
                 }
             }
@@ -1539,6 +1534,16 @@ function fillFormWithData(data) {
 
 // Soumission du formulaire
 async function submitForm() {
+    // Synchroniser le commentaire et le nom enseignant depuis le DOM avant validation
+    const isArabicSubject = currentData.subjectSelected === 'Acquisition de langue (اللغة العربية)';
+    const commentEl = isArabicSubject ? document.getElementById('teacherCommentArabic') : document.getElementById('teacherComment');
+    const teacherNameEl = isArabicSubject ? document.getElementById('teacherNameArabic') : document.getElementById('teacherName');
+    if (commentEl) currentData.teacherComment = commentEl.value;
+    if (teacherNameEl) {
+        currentData.teacherName = teacherNameEl.value.trim();
+        localStorage.setItem('teacherName', currentData.teacherName);
+    }
+
     if (!currentData.teacherName || !currentData.classSelected || !currentData.studentSelected || !currentData.subjectSelected) {
         alert("Veuillez remplir tous les champs requis.");
         return;
@@ -1546,13 +1551,14 @@ async function submitForm() {
     
     submitButton.disabled = true;
     submitButton.textContent = "Envoi en cours...";
+    // Désactiver aussi le bouton arabe si présent
+    const submitBtnArabic = document.getElementById('submitButtonArabic');
+    if (submitBtnArabic) { submitBtnArabic.disabled = true; submitBtnArabic.textContent = 'جارٍ الإرسال...'; }
     
     try {
-        // CORRECTION: S'assurer que communicationEvaluation est à jour avant soumission
+        // Synchroniser TOUS les champs du formulaire depuis le DOM (garantit cohérence)
+        syncFormDataFromDOM();
         handleCommunicationChange();
-        
-        // Assurer que la date de naissance est à jour
-        currentData.studentBirthdate = studentBirthdateInput.value || null;
         
         // Inclure le semestre courant dans les données
         const contributionData = { ...currentData, contributionId: currentContributionId, semester: currentSemester };
@@ -1596,6 +1602,8 @@ async function submitForm() {
     } finally {
         submitButton.disabled = false;
         submitButton.textContent = "Soumettre / Mettre à jour";
+        const submitBtnArabicFinal = document.getElementById('submitButtonArabic');
+        if (submitBtnArabicFinal) { submitBtnArabicFinal.disabled = false; submitBtnArabicFinal.textContent = 'إرسال / تحديث'; }
     }
 }
 
@@ -1725,6 +1733,8 @@ function createCommunicationTableHTML(evals = []) {
 function createCriteriaTableHTML(criteria = {}, subject) {
     const labels = criteriaBySubject[subject] || {};
     let total = 0;
+    // Correction: utiliser currentData.classSelected pour déterminer DP
+    const _isDPClass = currentData.classSelected === 'DP1' || currentData.classSelected === 'DP2';
     
     const keys = ['A','B','C','D']; // Utiliser A-D pour toutes les classes
     
@@ -1736,14 +1746,14 @@ function createCriteriaTableHTML(criteria = {}, subject) {
     }).join('');
     
     let note = 0;
-    const maxNote = isDPClass ? 7 : 8;
+    const maxNote = _isDPClass ? 7 : 8;
     if (total > 0) {
         note = Math.round(total/4);
         if (note < 1) note = 1;
         if (note > maxNote) note = maxNote;
     }
     
-    const maxThreshold = isDPClass ? 28 : 32;
+    const maxThreshold = _isDPClass ? 28 : 32;
     
     return `
         <table class="details-table">
@@ -2007,8 +2017,14 @@ function resetFormData() {
     currentData.unitsSem2 = 1;
     
     // Réinitialiser les sélecteurs d'unités
-    document.getElementById('unitsSem1Selector').value = '1';
-    document.getElementById('unitsSem2Selector').value = '1';
+    const u1 = document.getElementById('unitsSem1Selector');
+    const u2 = document.getElementById('unitsSem2Selector');
+    if (u1) u1.value = '1';
+    if (u2) u2.value = '1';
+    const u1ar = document.getElementById('unitsSem1SelectorArabic');
+    const u2ar = document.getElementById('unitsSem2SelectorArabic');
+    if (u1ar) u1ar.value = '1';
+    if (u2ar) u2ar.value = '1';
     
     // Utiliser A-D pour toutes les classes (PEI et DP)
     currentData.criteriaValues = {
@@ -2018,14 +2034,15 @@ function resetFormData() {
         D: {sem1: null, sem2: null, finalLevel: null, sem1Units: [], sem2Units: []}
     };
     currentContributionId = null;
+    // Masquer le banner S2
+    hideSemester2Banners();
 }
 
 function resetInputTables() {
     // Réinitialiser les tableaux français
     document.querySelectorAll("#communicationTable tbody select").forEach(s => s.value = '');
-    document.querySelectorAll("#criteriaTableBody input").forEach(i => {
-        if (!i.readOnly) i.value = '';
-    });
+    // Réinitialiser TOUS les inputs (y compris readOnly pour vider les notes S1 stale)
+    document.querySelectorAll("#criteriaTableBody input").forEach(i => { i.readOnly = false; i.style.backgroundColor = ''; i.style.cursor = ''; i.removeAttribute('title'); i.value = ''; });
     const thresholdInput = document.getElementById("threshold");
     const finalNoteInput = document.getElementById("finalNote");
     if (thresholdInput) thresholdInput.value = '';
@@ -2035,9 +2052,7 @@ function resetInputTables() {
     
     // Réinitialiser les tableaux arabes
     document.querySelectorAll("#communicationTableArabic tbody select").forEach(s => s.value = '');
-    document.querySelectorAll("#criteriaTableBodyArabic input").forEach(i => {
-        if (!i.readOnly) i.value = '';
-    });
+    document.querySelectorAll("#criteriaTableBodyArabic input").forEach(i => { i.readOnly = false; i.style.backgroundColor = ''; i.style.cursor = ''; i.removeAttribute('title'); i.value = ''; });
     const thresholdInputArabic = document.getElementById("thresholdArabic");
     const finalNoteInputArabic = document.getElementById("finalNoteArabic");
     if (thresholdInputArabic) thresholdInputArabic.value = '';
