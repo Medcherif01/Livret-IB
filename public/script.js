@@ -1391,12 +1391,24 @@ async function fetchData() {
                 
                 if (data && !data.noDataForSubject) {
                     // Il y a déjà des données S2 sauvegardées -> les charger
-                    // Mais d'abord, écraser les valeurs S1 avec les vraies données S1
+                    // CORRECTION BUG 1: Le document S2 en DB ne contient plus que sem2.
+                    // On injecte les valeurs sem1 depuis l'enregistrement S1 séparé.
+                    if (!data.criteriaValues) data.criteriaValues = {};
                     ['A','B','C','D'].forEach(key => {
-                        if (!data.criteriaValues) data.criteriaValues = {};
                         if (!data.criteriaValues[key]) data.criteriaValues[key] = {};
-                        data.criteriaValues[key].sem1 = s1CriteriaValues[key]?.sem1 ?? null;
+                        // Injecter sem1 depuis l'enregistrement S1 (lecture seule côté formulaire)
+                        data.criteriaValues[key].sem1      = s1CriteriaValues[key]?.sem1      ?? null;
                         data.criteriaValues[key].sem1Units = s1CriteriaValues[key]?.sem1Units ?? [];
+                        // Recalculer finalLevel = moyenne(sem1, sem2)
+                        const s1v = data.criteriaValues[key].sem1;
+                        const s2v = data.criteriaValues[key].sem2 ?? null;
+                        if (s1v !== null && s2v !== null) {
+                            data.criteriaValues[key].finalLevel = Math.round((parseFloat(s1v) + parseFloat(s2v)) / 2);
+                        } else if (s2v !== null) {
+                            data.criteriaValues[key].finalLevel = s2v;
+                        } else {
+                            data.criteriaValues[key].finalLevel = s1v;
+                        }
                     });
                     fillFormWithData(data);
                     currentContributionId = data._id || null;
@@ -1420,11 +1432,11 @@ async function fetchData() {
                     // Pré-remplir les notes S1 (pour affichage en lecture seule), sem2 vide
                     ['A','B','C','D'].forEach(key => {
                         currentData.criteriaValues[key] = {
-                            sem1: s1CriteriaValues[key]?.sem1 ?? null,
-                            sem1Units: s1CriteriaValues[key]?.sem1Units ?? [],
-                            sem2: null,
-                            sem2Units: [],
-                            finalLevel: s1CriteriaValues[key]?.sem1 ?? null
+                            sem1:       s1CriteriaValues[key]?.sem1      ?? null,
+                            sem1Units:  s1CriteriaValues[key]?.sem1Units ?? [],
+                            sem2:       null,
+                            sem2Units:  [],
+                            finalLevel: s1CriteriaValues[key]?.sem1      ?? null
                         };
                     });
                 }
@@ -1562,8 +1574,47 @@ async function submitForm() {
         
         // Inclure le semestre courant dans les données
         const contributionData = { ...currentData, contributionId: currentContributionId, semester: currentSemester };
+
+        // CORRECTION BUG 1 : Avant l'envoi, nettoyer criteriaValues pour ne garder
+        // que les données du semestre courant. Cela évite qu'une sauvegarde S1
+        // n'écrase les données sem2 d'un enregistrement S2 (et vice-versa).
+        // Le serveur fait le même nettoyage, mais on le fait aussi côté client
+        // pour s'assurer que finalLevel est correctement calculé.
+        const cleanedCriteriaValues = {};
+        for (const key of ['A', 'B', 'C', 'D']) {
+            const src = contributionData.criteriaValues?.[key] || {};
+            if (currentSemester === 1) {
+                cleanedCriteriaValues[key] = {
+                    sem1:       src.sem1       ?? null,
+                    sem1Units:  src.sem1Units  ?? [],
+                    sem2:       null,
+                    sem2Units:  [],
+                    finalLevel: src.sem1       ?? null
+                };
+            } else {
+                // S2 : calculer le finalLevel comme moyenne S1+S2 si les deux sont disponibles
+                const s1Val = src.sem1 ?? null;
+                const s2Val = src.sem2 ?? null;
+                let finalLevel = null;
+                if (s1Val !== null && s2Val !== null) {
+                    finalLevel = Math.round((parseFloat(s1Val) + parseFloat(s2Val)) / 2);
+                } else if (s2Val !== null) {
+                    finalLevel = s2Val;
+                } else if (s1Val !== null) {
+                    finalLevel = s1Val;
+                }
+                cleanedCriteriaValues[key] = {
+                    sem1:       null,
+                    sem1Units:  [],
+                    sem2:       s2Val,
+                    sem2Units:  src.sem2Units ?? [],
+                    finalLevel: finalLevel
+                };
+            }
+        }
+        contributionData.criteriaValues = cleanedCriteriaValues;
         
-        console.log('📤 Données à sauvegarder:', contributionData);
+        console.log('📤 Données à sauvegarder (S' + currentSemester + '):', contributionData);
         console.log('📊 ATL Communication:', contributionData.communicationEvaluation);
         
         const result = await apiCall('saveContribution', contributionData);

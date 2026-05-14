@@ -386,17 +386,29 @@ function createCriteriaDataForTemplate(criteriaValues, originalSubjectName, clas
     let totalLevel = 0;
     
     // Utiliser A-D pour toutes les classes (PEI et DP)
+    // Le template Word utilise les clés AO1, AO2, AO3, AO4
     const criteriaKeys = ['A', 'B', 'C', 'D'];
+    const aoKeys     = ['AO1', 'AO2', 'AO3', 'AO4'];
     const maxNote = (className === 'DP1' || className === 'DP2') ? 7 : 8;
     
-    criteriaKeys.forEach(key => {
+    criteriaKeys.forEach((key, idx) => {
+        const aoKey = aoKeys[idx]; // AO1, AO2, AO3, AO4
         const critData = criteriaValues?.[key] || {};
         const finalLevelValue = critData.finalLevel ?? "-";
-        templateData[`criteriaKey.${key}`] = key;
+
+        // Clés au format attendu par le template Word
+        templateData[`criteriaKey${aoKey}`]  = key;                             // {criteriaKeyAO1} = A
+        templateData[`criteriaName ${aoKey}`] = criteriaNames[key] || `Critère ${key}`; // {criteriaName AO1}
+        templateData[`criteria${aoKey}.sem1`] = critData.sem1 ?? "-";          // {criteriaAO1.sem1}
+        templateData[`criteria${aoKey}.sem2`] = critData.sem2 ?? "-";          // {criteriaAO1.sem2}
+        templateData[`finalLevel${aoKey}`]    = finalLevelValue;                // {finalLevelAO1}
+
+        // Conserver aussi les anciennes clés pour compatibilité ascendante
+        templateData[`criteriaKey.${key}`]  = key;
         templateData[`criteriaName ${key}`] = criteriaNames[key] || `Critère ${key}`;
         templateData[`criteria${key}.sem1`] = critData.sem1 ?? "-";
         templateData[`criteria${key}.sem2`] = critData.sem2 ?? "-";
-        templateData[`finalLevel.${key}`] = finalLevelValue;
+        templateData[`finalLevel.${key}`]   = finalLevelValue;
         
         if (finalLevelValue !== "-" && !isNaN(finalLevelValue)) {
             totalLevel += parseFloat(finalLevelValue);
@@ -925,6 +937,40 @@ app.post('/api/saveContribution', async (req, res) => {
         const semNum = parseInt(contribData.semester) || 1;
         contribData.semester = semNum;
 
+        // CORRECTION BUG 1 : Isolation des données par semestre
+        // Pour éviter que la sauvegarde d'un semestre n'écrase les données de l'autre,
+        // on ne conserve dans criteriaValues que les champs du semestre courant.
+        // Les champs sem1/sem1Units d'un enregistrement S2 sont reconstruits à l'affichage
+        // depuis l'enregistrement S1 (voir fetchData côté client).
+        if (contribData.criteriaValues && typeof contribData.criteriaValues === 'object') {
+            const cleanedCriteria = {};
+            for (const key of ['A', 'B', 'C', 'D']) {
+                const src = contribData.criteriaValues[key] || {};
+                if (semNum === 1) {
+                    // Enregistrement S1 : stocker sem1 + sem1Units uniquement
+                    // sem2 et sem2Units sont ignorés (appartiennent à l'enregistrement S2)
+                    cleanedCriteria[key] = {
+                        sem1:      src.sem1      ?? null,
+                        sem1Units: src.sem1Units ?? [],
+                        sem2:      null,
+                        sem2Units: [],
+                        finalLevel: src.sem1     ?? null   // niveau final S1 = valeur S1
+                    };
+                } else {
+                    // Enregistrement S2 : stocker sem2 + sem2Units uniquement
+                    // sem1 et sem1Units sont ignorés (appartiennent à l'enregistrement S1)
+                    cleanedCriteria[key] = {
+                        sem1:      null,
+                        sem1Units: [],
+                        sem2:      src.sem2      ?? null,
+                        sem2Units: src.sem2Units ?? [],
+                        finalLevel: src.finalLevel ?? null  // niveau final calculé (moyenne S1+S2)
+                    };
+                }
+            }
+            contribData.criteriaValues = cleanedCriteria;
+        }
+
         let result;
         if (contributionId) {
             // Mise à jour
@@ -1117,30 +1163,102 @@ app.post('/api/generateSingleWord', async (req, res) => {
         const semesterNum = parseInt(semester) || 1;
         console.log(`Word generation for: ${studentSelected} (Semestre ${semesterNum})`);
         
-        // Récupérer les contributions selon le semestre
-        // Semestre 1: contributions sans champ semester OU semester=1
-        // Semestre 2: contributions avec semester=2
-        let semesterFilter;
-        if (semesterNum === 2) {
-            semesterFilter = { semester: 2 };
-        } else {
-            // S1: semester=1 ou null (anciens enregistrements sans champ semester)
-            semesterFilter = { semester: { $in: [1, null] } };
-        }
-        let studentContributions = await contributionsCollection.find({
-            studentSelected: studentSelected,
-            sectionSelected: sectionSelected,
-            ...semesterFilter
+        // ---------------------------------------------------------------
+        // CORRECTION BUG 1 & BUG 2 : Fusion S1 + S2 pour le document Word
+        // Depuis la correction Bug 1, chaque enregistrement DB ne contient
+        // que les données de son propre semestre (sem1 ou sem2).
+        // Pour le document Word on a besoin des DEUX (sem1 ET sem2) dans
+        // chaque contribution → on charge S1 et S2 séparément puis on fusionne.
+        // ---------------------------------------------------------------
+
+        // 1. Charger les contributions S1
+        let s1Filter = { semester: { $in: [1, null] } };
+        let s1Contributions = await contributionsCollection.find({
+            studentSelected, sectionSelected, ...s1Filter
         }).toArray();
-        // Fallback S1: anciens enregistrements sans champ semester
-        if (semesterNum === 1 && studentContributions.length === 0) {
-            studentContributions = await contributionsCollection.find({
-                studentSelected: studentSelected,
-                sectionSelected: sectionSelected
-            }).toArray();
-            studentContributions = studentContributions.filter(c => !c.semester || c.semester === 1);
+        // Fallback anciens enregistrements sans champ semester
+        if (s1Contributions.length === 0) {
+            const all = await contributionsCollection.find({ studentSelected, sectionSelected }).toArray();
+            s1Contributions = all.filter(c => !c.semester || c.semester === 1);
         }
-        
+
+        // 2. Charger les contributions S2
+        let s2Contributions = await contributionsCollection.find({
+            studentSelected, sectionSelected, semester: 2
+        }).toArray();
+
+        // 3. Construire un dictionnaire S2 indexé par matière
+        const s2BySubject = {};
+        s2Contributions.forEach(c => { s2BySubject[c.subjectSelected] = c; });
+
+        // 4. Fusionner : pour chaque matière S1, injecter les valeurs sem2 depuis S2
+        let studentContributions = s1Contributions.map(s1 => {
+            const s2 = s2BySubject[s1.subjectSelected];
+            if (!s2) return s1; // pas encore de données S2 → garder S1 tel quel
+
+            // Fusionner criteriaValues : sem1 vient de S1, sem2 vient de S2
+            const mergedCriteria = {};
+            for (const key of ['A', 'B', 'C', 'D']) {
+                const c1 = s1.criteriaValues?.[key] || {};
+                const c2 = s2.criteriaValues?.[key] || {};
+                const s1v = c1.sem1 ?? null;
+                const s2v = c2.sem2 ?? null;
+                let finalLevel = null;
+                if (s1v !== null && s2v !== null) {
+                    finalLevel = Math.round((parseFloat(s1v) + parseFloat(s2v)) / 2);
+                } else if (s2v !== null) {
+                    finalLevel = s2v;
+                } else if (s1v !== null) {
+                    finalLevel = s1v;
+                }
+                // Conserver aussi finalLevel enregistré en S2 si calculé là-bas
+                if (c2.finalLevel !== null && c2.finalLevel !== undefined) {
+                    finalLevel = c2.finalLevel;
+                }
+                mergedCriteria[key] = {
+                    sem1:       s1v,
+                    sem1Units:  c1.sem1Units ?? [],
+                    sem2:       s2v,
+                    sem2Units:  c2.sem2Units ?? [],
+                    finalLevel: finalLevel
+                };
+            }
+
+            return {
+                ...s1,
+                criteriaValues:        mergedCriteria,
+                teacherComment:        s2.teacherComment        || s1.teacherComment,
+                communicationEvaluation: s2.communicationEvaluation?.length
+                    ? s2.communicationEvaluation
+                    : s1.communicationEvaluation,
+                teacherName:           s2.teacherName           || s1.teacherName
+            };
+        });
+
+        // Ajouter les matières présentes uniquement en S2 (pas encore en S1)
+        s2Contributions.forEach(s2 => {
+            const alreadyMerged = studentContributions.some(c => c.subjectSelected === s2.subjectSelected);
+            if (!alreadyMerged) {
+                // Construire les criteriaValues avec sem2 uniquement
+                const mergedCriteria = {};
+                for (const key of ['A', 'B', 'C', 'D']) {
+                    const c2 = s2.criteriaValues?.[key] || {};
+                    mergedCriteria[key] = {
+                        sem1: null, sem1Units: [],
+                        sem2: c2.sem2 ?? null, sem2Units: c2.sem2Units ?? [],
+                        finalLevel: c2.finalLevel ?? c2.sem2 ?? null
+                    };
+                }
+                studentContributions.push({ ...s2, criteriaValues: mergedCriteria });
+            }
+        });
+
+        // Si le document est pour S1 seulement (pas de fusion), utiliser uniquement S1
+        if (semesterNum === 1) {
+            // Pour S1, ne montrer que les données sem1 (pas de sem2)
+            studentContributions = s1Contributions;
+        }
+
         if (studentContributions.length === 0) {
             console.warn(`⚠️ No contributions found for ${studentSelected}, generating empty document`);
             // Permettre la génération d'un document vide plutôt que de retourner 404
