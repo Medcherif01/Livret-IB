@@ -910,20 +910,20 @@ app.post('/api/fetchStudentInfo', async (req, res) => {
 
 // Enregistrer/Mettre à jour une contribution
 app.post('/api/saveContribution', async (req, res) => {
-    // Le middleware ensureDbConnection garantit que la DB est connectée
     try {
-        const { contributionId, studentBirthdate, studentPhoto, ...contribData } = req.body;
+        // s1CriteriaValues : données S1 modifiées depuis le formulaire S2 (feature 2)
+        const { contributionId, studentBirthdate, studentPhoto, s1CriteriaValues, ...contribData } = req.body;
         contribData.timestamp = new Date();
-        
-        console.log(`Saving contribution for ${contribData.studentSelected} - ${contribData.subjectSelected}`);
-        // Minimal required fields validation to avoid invalid direct writes
+
+        console.log(`Saving contribution for ${contribData.studentSelected} - ${contribData.subjectSelected} S${contribData.semester || 1}`);
+
         const required = ['studentSelected','subjectSelected','classSelected','sectionSelected','teacherName'];
         for (const key of required) {
             if (!contribData[key]) {
                 return res.status(400).json({ success: false, error: `Champ manquant: ${key}` });
             }
         }
-        
+
         // Mettre à jour la date de naissance
         if (studentBirthdate) {
             await studentsCollection.updateOne(
@@ -932,84 +932,87 @@ app.post('/api/saveContribution', async (req, res) => {
                 { upsert: true }
             );
         }
-        
-        // Normaliser le champ semester (1 ou 2)
+
         const semNum = parseInt(contribData.semester) || 1;
         contribData.semester = semNum;
 
-        // CORRECTION BUG 1 : Isolation des données par semestre
-        // Pour éviter que la sauvegarde d'un semestre n'écrase les données de l'autre,
-        // on ne conserve dans criteriaValues que les champs du semestre courant.
-        // Les champs sem1/sem1Units d'un enregistrement S2 sont reconstruits à l'affichage
-        // depuis l'enregistrement S1 (voir fetchData côté client).
-        if (contribData.criteriaValues && typeof contribData.criteriaValues === 'object') {
-            const cleanedCriteria = {};
-            for (const key of ['A', 'B', 'C', 'D']) {
-                const src = contribData.criteriaValues[key] || {};
-                if (semNum === 1) {
-                    // Enregistrement S1 : stocker sem1 + sem1Units uniquement
-                    // sem2 et sem2Units sont ignorés (appartiennent à l'enregistrement S2)
-                    cleanedCriteria[key] = {
-                        sem1:      src.sem1      ?? null,
-                        sem1Units: src.sem1Units ?? [],
-                        sem2:      null,
-                        sem2Units: [],
-                        finalLevel: src.sem1     ?? null   // niveau final S1 = valeur S1
-                    };
-                } else {
-                    // Enregistrement S2 : stocker sem2 + sem2Units uniquement
-                    // sem1 et sem1Units sont ignorés (appartiennent à l'enregistrement S1)
-                    cleanedCriteria[key] = {
-                        sem1:      null,
-                        sem1Units: [],
-                        sem2:      src.sem2      ?? null,
-                        sem2Units: src.sem2Units ?? [],
-                        finalLevel: src.finalLevel ?? null  // niveau final calculé (moyenne S1+S2)
-                    };
-                }
-            }
-            contribData.criteriaValues = cleanedCriteria;
-        }
-
-        let result;
-        if (contributionId) {
-            // Mise à jour
-            result = await contributionsCollection.findOneAndUpdate(
-                { _id: new ObjectId(contributionId) },
-                { $set: contribData },
-                { returnDocument: 'after' }
-            );
-        } else {
-            // Création ou upsert - clé unique inclut maintenant le semestre
-            const upsertFilter = {
-                studentSelected: contribData.studentSelected,
-                subjectSelected: contribData.subjectSelected,
-                classSelected: contribData.classSelected,
-                sectionSelected: contribData.sectionSelected,
-                semester: semNum
+        // ---- Helper : upsert propre par semestre ----
+        async function upsertSemDoc(semNumber, data) {
+            const filter = {
+                studentSelected: data.studentSelected,
+                subjectSelected: data.subjectSelected,
+                classSelected:   data.classSelected,
+                sectionSelected: data.sectionSelected,
+                semester:        semNumber
             };
-            result = await contributionsCollection.findOneAndUpdate(
-                upsertFilter,
-                { $set: contribData, $setOnInsert: { createdAt: new Date() } },
+            // Si on a un contributionId ET que le semestre correspond, on met à jour par _id
+            // Sinon on fait toujours un upsert par filtre (plus sûr)
+            return contributionsCollection.findOneAndUpdate(
+                filter,
+                { $set: data, $setOnInsert: { createdAt: new Date() } },
                 { upsert: true, returnDocument: 'after' }
             );
         }
-        
-        // findOneAndUpdate returns the document directly in newer MongoDB drivers
-        const savedDoc = result?.value || result;
-        const savedId = savedDoc?._id || result?._id;
-        if (savedId || result) {
-            console.log(`Contribution saved: ${savedId}`);
-            res.json({ 
-                success: true, 
-                message: 'Contribution enregistrée/mise à jour', 
-                data: savedId 
-            });
-        } else {
-            // Upsert succeeded but doc not returned – still a success
-            console.log(`Contribution upserted (no doc returned)`);
-            res.json({ success: true, message: 'Contribution enregistrée/mise à jour', data: null });
+
+        // ---- Nettoyage criteriaValues pour le semestre courant ----
+        function cleanCriteriaForSem(criteriaValues, sem) {
+            const cleaned = {};
+            for (const key of ['A','B','C','D']) {
+                const src = criteriaValues?.[key] || {};
+                if (sem === 1) {
+                    cleaned[key] = {
+                        sem1:       src.sem1      ?? null,
+                        sem1Units:  src.sem1Units ?? [],
+                        sem2:       null,
+                        sem2Units:  [],
+                        finalLevel: src.sem1      ?? null
+                    };
+                } else {
+                    const s1v = src.sem1 ?? null;
+                    const s2v = src.sem2 ?? null;
+                    let fl = null;
+                    if (s1v !== null && s2v !== null) fl = Math.round((parseFloat(s1v)+parseFloat(s2v))/2);
+                    else if (s2v !== null) fl = s2v;
+                    else if (s1v !== null) fl = s1v;
+                    cleaned[key] = {
+                        sem1:       null,
+                        sem1Units:  [],
+                        sem2:       s2v,
+                        sem2Units:  src.sem2Units ?? [],
+                        finalLevel: fl
+                    };
+                }
+            }
+            return cleaned;
         }
+
+        // ---- 1. Sauvegarder l'enregistrement du semestre courant ----
+        const mainData = { ...contribData };
+        mainData.criteriaValues = cleanCriteriaForSem(contribData.criteriaValues, semNum);
+        const result = await upsertSemDoc(semNum, mainData);
+
+        // ---- 2. Si on est en S2 ET que des notes S1 modifiées sont fournies ----
+        //        on met aussi à jour l'enregistrement S1 (feature 2)
+        if (semNum === 2 && s1CriteriaValues && typeof s1CriteriaValues === 'object') {
+            const s1Data = {
+                studentSelected: contribData.studentSelected,
+                subjectSelected: contribData.subjectSelected,
+                classSelected:   contribData.classSelected,
+                sectionSelected: contribData.sectionSelected,
+                teacherName:     contribData.teacherName,
+                timestamp:       new Date(),
+                semester:        1,
+                criteriaValues:  cleanCriteriaForSem(s1CriteriaValues, 1)
+            };
+            await upsertSemDoc(1, s1Data);
+            console.log(`✅ Notes S1 également mises à jour depuis formulaire S2`);
+        }
+
+        const savedDoc = result?.value || result;
+        const savedId  = savedDoc?._id || result?._id;
+        console.log(`✅ Contribution saved (S${semNum}): ${savedId}`);
+        res.json({ success: true, message: 'Contribution enregistrée/mise à jour', data: savedId });
+
     } catch (error) {
         console.error('Error saving contribution:', error);
         if (error.code === 11000) {
@@ -1080,6 +1083,90 @@ app.post('/api/fetchStudentContributions', async (req, res) => {
         console.error('Error fetching student contributions:', error);
         // Retourner un objet avec tableau vide au lieu d'erreur 500
         res.json({ contributions: [] });
+    }
+});
+
+// ---- Suivi / Bilan par classe (feature 3) ----
+// POST /api/studentProgress
+// Body: { classSelected, sectionSelected }
+// Retourne pour chaque élève : matières complétées S1, S2 et manquantes
+app.post('/api/studentProgress', async (req, res) => {
+    try {
+        const { classSelected, sectionSelected } = req.body;
+        if (!classSelected || !sectionSelected) {
+            return res.status(400).json({ error: 'classSelected et sectionSelected sont requis' });
+        }
+
+        // Référentiel statique des matières par classe (même liste que côté client)
+        const subjectsByClass = {
+            PEI1:["Mathématiques","Individus et sociétés","Langue et littérature","Design","Sciences","Art visuel","Éducation physique et sportive","Acquisition de langue (Anglais)","Acquisition de langue (اللغة العربية)"],
+            PEI2:["Mathématiques","Individus et sociétés","Langue et littérature","Design","Sciences","Art visuel","Éducation physique et sportive","Acquisition de langue (Anglais)","Acquisition de langue (اللغة العربية)"],
+            PEI3:["Mathématiques","Individus et sociétés","Langue et littérature","Design","Sciences","Art visuel","Éducation physique et sportive","Acquisition de langue (Anglais)","Acquisition de langue (اللغة العربية)"],
+            PEI4:["Mathématiques","Individus et sociétés","Langue et littérature","Design","Sciences","Art visuel","Éducation physique et sportive","Acquisition de langue (Anglais)","Acquisition de langue (اللغة العربية)"],
+            PEI5:["Mathématiques","Individus et sociétés","Langue et littérature","Design","Sciences","Art visuel","Éducation physique et sportive","Acquisition de langue (Anglais)","Acquisition de langue (اللغة العربية)"],
+            DP1:["Mathématiques","Individus et sociétés","Langue et littérature","Design","Sciences","Art visuel","Éducation physique et sportive","Acquisition de langue (Anglais)","Acquisition de langue (اللغة العربية)"],
+            DP2:["Mathématiques","Individus et sociétés","Langue et littérature","Design","Sciences","Art visuel","Éducation physique et sportive","Acquisition de langue (Anglais)","Acquisition de langue (اللغة العربية)"]
+        };
+
+        const studentsByClassAndSection = {
+            garçons:{ PEI1:["Bilal","Faysal","Jad","Manaf"], PEI2:["Ahmed","Ali","Eyad","Yasser"], PEI3:["Adam","Ahmad","Mohamed Chalak","Seifeddine","Wajih"], PEI4:["Abdulrahman","Mohamed Amine Sgheir","Mohamed Younes","Samir","Youssef"], DP2:["Habib","Salah"] },
+            filles:{ PEI1:["Naya Sabbidine"], PEI2:["Israa Alkattan","Dina Tlili","Lina Tlili","Cynthia Fadlallah","Neyla Molina"], PEI3:["Jawahair Eshmawi"], PEI4:["Yousr Letaief","Sarah Aldebasy","Maria Wahib"], PEI5:["Badia Khaldi","Luluwah Alghabashi"], DP1:["Yomna Masrouhi"], DP2:["Isra Elalmi"] }
+        };
+
+        const expectedSubjects = subjectsByClass[classSelected] || [];
+        const studentList = (studentsByClassAndSection[sectionSelected] || {})[classSelected] || [];
+
+        if (studentList.length === 0) {
+            return res.json({ students: [], expectedSubjects });
+        }
+
+        // Récupérer toutes les contributions de la classe (S1 + S2)
+        const allContribs = await contributionsCollection.find({
+            classSelected, sectionSelected,
+            studentSelected: { $in: studentList }
+        }, { projection: { studentSelected:1, subjectSelected:1, semester:1, teacherComment:1, communicationEvaluation:1, criteriaValues:1 } }).toArray();
+
+        // Indexer par élève → matière → semestre
+        const index = {};
+        studentList.forEach(s => { index[s] = {}; });
+        allContribs.forEach(c => {
+            const sem = c.semester === 2 ? 2 : 1;
+            if (!index[c.studentSelected]) index[c.studentSelected] = {};
+            if (!index[c.studentSelected][c.subjectSelected]) index[c.studentSelected][c.subjectSelected] = {};
+            index[c.studentSelected][c.subjectSelected][`s${sem}`] = c;
+        });
+
+        const students = studentList.map(studentName => {
+            const subjectStatus = expectedSubjects.map(subj => {
+                const s1 = index[studentName]?.[subj]?.s1;
+                const s2 = index[studentName]?.[subj]?.s2;
+                // Vérifier si les données sont complètes (notes saisies)
+                const hasS1Notes = s1 && s1.criteriaValues && ['A','B','C','D'].some(k => s1.criteriaValues[k]?.sem1 !== null && s1.criteriaValues[k]?.sem1 !== undefined);
+                const hasS2Notes = s2 && s2.criteriaValues && ['A','B','C','D'].some(k => s2.criteriaValues[k]?.sem2 !== null && s2.criteriaValues[k]?.sem2 !== undefined);
+                const hasS1Comment = !!(s1?.teacherComment && s1.teacherComment.trim() && s1.teacherComment !== '-');
+                const hasS2Comment = !!(s2?.teacherComment && s2.teacherComment.trim() && s2.teacherComment !== '-');
+                const hasS1ATL = !!(s1?.communicationEvaluation?.some(v => v && v !== ''));
+                const hasS2ATL = !!(s2?.communicationEvaluation?.some(v => v && v !== ''));
+                return {
+                    subject: subj,
+                    s1: { done: !!s1, hasNotes: !!hasS1Notes, hasComment: hasS1Comment, hasATL: hasS1ATL },
+                    s2: { done: !!s2, hasNotes: !!hasS2Notes, hasComment: hasS2Comment, hasATL: hasS2ATL }
+                };
+            });
+
+            const totalSubjects = expectedSubjects.length;
+            const s1Done  = subjectStatus.filter(s => s.s1.done).length;
+            const s2Done  = subjectStatus.filter(s => s.s2.done).length;
+            const missing = subjectStatus.filter(s => !s.s1.done || !s.s2.done);
+            const incomplete = subjectStatus.filter(s => (s.s1.done && (!s.s1.hasNotes || !s.s1.hasComment)) || (s.s2.done && (!s.s2.hasNotes || !s.s2.hasComment)));
+
+            return { studentName, totalSubjects, s1Done, s2Done, missing, incomplete, subjectStatus };
+        });
+
+        res.json({ students, expectedSubjects });
+    } catch (error) {
+        console.error('Error in studentProgress:', error);
+        res.status(500).json({ error: error.message });
     }
 });
 

@@ -587,31 +587,30 @@ function updateSemesterUI() {
     }
 }
 
-// Mode Semestre 2: Verrouiller les colonnes S1 (pré-remplies avec notes S1)
-// Les commentaires/ATL sont gérés par fetchData() selon les données S2 existantes
+// Mode Semestre 2: Les colonnes S1 sont éditables (feature 2) mais colorées
+// pour indiquer qu'elles appartiennent au Semestre 1.
 function applySemester2Mode() {
     const isArabicSubject = currentData.subjectSelected === 'Acquisition de langue (اللغة العربية)';
     
     // Afficher le banner S2
     const banner = document.getElementById(isArabicSubject ? 's2InfoBannerArabic' : 's2InfoBanner');
     if (banner) banner.style.display = 'block';
-    // Masquer le banner de l'autre section
     const otherBanner = document.getElementById(isArabicSubject ? 's2InfoBanner' : 's2InfoBannerArabic');
     if (otherBanner) otherBanner.style.display = 'none';
     
-    // Verrouiller les inputs Semestre 1 (lecture seule) - ils sont déjà remplis avec les notes S1
-    const sem1Selector = isArabicSubject 
-        ? '#criteriaTableBodyArabic .sem1-cell input, #criteriaTableBodyArabic .sem1-unit-cell input, #criteriaTableBodyArabic .sem1-unit input, #criteriaTableBodyArabic .sem1-avg-input'
-        : '#criteriaTableBody .sem1-cell input, #criteriaTableBody .sem1-unit-cell input, #criteriaTableBody .sem1-unit input, #criteriaTableBody .sem1-avg-input';
+    // Colonnes S1 : MODIFIABLES mais avec fond bleu clair pour signaler leur origine
+    const sem1Selector = isArabicSubject
+        ? '#criteriaTableBodyArabic .sem1-cell input, #criteriaTableBodyArabic .sem1-unit-cell input, #criteriaTableBodyArabic .sem1-unit input'
+        : '#criteriaTableBody .sem1-cell input, #criteriaTableBody .sem1-unit-cell input, #criteriaTableBody .sem1-unit input';
     
     document.querySelectorAll(sem1Selector).forEach(input => {
-        input.readOnly = true;
+        input.readOnly = false;  // ÉDITABLE (feature 2)
         input.style.backgroundColor = '#d6e4ff';
-        input.style.cursor = 'not-allowed';
-        input.title = 'Note Semestre 1 (lecture seule - importée automatiquement)';
+        input.style.cursor = '';
+        input.title = 'Note Semestre 1 (modifiable - sera sauvegardé dans S1)';
     });
     
-    // S'assurer que les champs Semestre 2 sont actifs et modifiables
+    // Colonnes S2 : actives
     const sem2Selector = isArabicSubject
         ? '#criteriaTableBodyArabic .sem2-cell input, #criteriaTableBodyArabic .sem2-unit-cell input, #criteriaTableBodyArabic .sem2-unit input'
         : '#criteriaTableBody .sem2-cell input, #criteriaTableBody .sem2-unit-cell input, #criteriaTableBody .sem2-unit input';
@@ -623,7 +622,7 @@ function applySemester2Mode() {
         input.removeAttribute('title');
     });
     
-    console.log('🔒 Mode Semestre 2 activé - colonnes S1 verrouillées (notes S1 conservées en bleu)');
+    console.log('✏️ Mode Semestre 2 activé - colonnes S1 éditables (bleu), S2 actives');
 }
 
 // Masquer les banners S2 (appelé quand on revient en S1)
@@ -1575,45 +1574,51 @@ async function submitForm() {
         // Inclure le semestre courant dans les données
         const contributionData = { ...currentData, contributionId: currentContributionId, semester: currentSemester };
 
-        // CORRECTION BUG 1 : Avant l'envoi, nettoyer criteriaValues pour ne garder
-        // que les données du semestre courant. Cela évite qu'une sauvegarde S1
-        // n'écrase les données sem2 d'un enregistrement S2 (et vice-versa).
-        // Le serveur fait le même nettoyage, mais on le fait aussi côté client
-        // pour s'assurer que finalLevel est correctement calculé.
+        // ---- Isolation des données par semestre ----
+        // Le serveur nettoie aussi, mais on le fait ici pour avoir finalLevel correct.
+        // En S2 on extrait aussi s1CriteriaValues pour mettre à jour le doc S1 (feature 2).
         const cleanedCriteriaValues = {};
+        const s1CriteriaValues = currentSemester === 2 ? {} : null;
+
         for (const key of ['A', 'B', 'C', 'D']) {
             const src = contributionData.criteriaValues?.[key] || {};
             if (currentSemester === 1) {
                 cleanedCriteriaValues[key] = {
-                    sem1:       src.sem1       ?? null,
-                    sem1Units:  src.sem1Units  ?? [],
+                    sem1:       src.sem1      ?? null,
+                    sem1Units:  src.sem1Units ?? [],
                     sem2:       null,
                     sem2Units:  [],
-                    finalLevel: src.sem1       ?? null
+                    finalLevel: src.sem1      ?? null
                 };
             } else {
-                // S2 : calculer le finalLevel comme moyenne S1+S2 si les deux sont disponibles
-                const s1Val = src.sem1 ?? null;
-                const s2Val = src.sem2 ?? null;
-                let finalLevel = null;
-                if (s1Val !== null && s2Val !== null) {
-                    finalLevel = Math.round((parseFloat(s1Val) + parseFloat(s2Val)) / 2);
-                } else if (s2Val !== null) {
-                    finalLevel = s2Val;
-                } else if (s1Val !== null) {
-                    finalLevel = s1Val;
-                }
+                // Notes S1 modifiées en mode S2 → à envoyer séparément
+                s1CriteriaValues[key] = {
+                    sem1:       src.sem1      ?? null,
+                    sem1Units:  src.sem1Units ?? [],
+                    sem2:       null,
+                    sem2Units:  [],
+                    finalLevel: src.sem1      ?? null
+                };
+                // Notes S2 propres
+                const s1v = src.sem1 ?? null;
+                const s2v = src.sem2 ?? null;
+                let fl = null;
+                if (s1v !== null && s2v !== null) fl = Math.round((parseFloat(s1v)+parseFloat(s2v))/2);
+                else if (s2v !== null) fl = s2v;
+                else if (s1v !== null) fl = s1v;
                 cleanedCriteriaValues[key] = {
                     sem1:       null,
                     sem1Units:  [],
-                    sem2:       s2Val,
+                    sem2:       s2v,
                     sem2Units:  src.sem2Units ?? [],
-                    finalLevel: finalLevel
+                    finalLevel: fl
                 };
             }
         }
         contributionData.criteriaValues = cleanedCriteriaValues;
-        
+        // Envoyer les notes S1 si modifiées depuis le formulaire S2
+        if (s1CriteriaValues) contributionData.s1CriteriaValues = s1CriteriaValues;
+
         console.log('📤 Données à sauvegarder (S' + currentSemester + '):', contributionData);
         console.log('📊 ATL Communication:', contributionData.communicationEvaluation);
         
@@ -2133,20 +2138,142 @@ function getSubjectColor(subject) {
 
 // Initialisation
 document.addEventListener('DOMContentLoaded', () => {
-    console.log("🚀 Livret IB Version 2.3 - S2 indépendant, template S2, boutons retour");
-    console.log("✅ S2 stocké séparément en DB (champ semester=2)");
-    console.log("✅ Template Word dédié pour Semestre 2");
-    console.log("✅ Photo élève via ImageModule {%image}");
-    console.log("✅ Boutons Précédent à chaque étape");
-    console.log("✅ Cartes de matières activées");
-    console.log("✅ Chargement automatique des données");
+    console.log("🚀 Livret IB Version 2.4 - isolation S1/S2, S1 modifiable en S2, panel suivi");
     
     if (currentData.teacherName) {
         teacherNameInput.value = currentData.teacherName;
     }
-    
-    // Initialiser l'UI du semestre
     updateSemesterUI();
-    
+    initProgressPanel();
     console.log("📱 Application prête.");
 });
+
+// ============================================================
+// PANNEAU SUIVI / BILAN (Feature 3)
+// ============================================================
+const availableClassesBySection = {
+    'garçons': ['PEI1','PEI2','PEI3','PEI4','DP2'],
+    'filles':  ['PEI1','PEI2','PEI3','PEI4','PEI5','DP1','DP2']
+};
+
+function initProgressPanel() {
+    const sectionSel = document.getElementById('progressSection');
+    if (!sectionSel) return;
+    sectionSel.addEventListener('change', () => {
+        const section = sectionSel.value;
+        const classSel = document.getElementById('progressClass');
+        classSel.innerHTML = '<option value="">-- Classe --</option>';
+        (availableClassesBySection[section] || []).forEach(c => {
+            const o = document.createElement('option'); o.value = c; o.textContent = c;
+            classSel.appendChild(o);
+        });
+        document.getElementById('progressContent').innerHTML = '<p style="color:#6c757d;text-align:center;margin-top:30px;">Sélectionnez une classe.</p>';
+    });
+}
+
+function toggleProgressPanel() {
+    const panel   = document.getElementById('progressPanel');
+    const overlay = document.getElementById('progressOverlay');
+    if (!panel) return;
+    const isOpen = panel.style.display !== 'none';
+    panel.style.display   = isOpen ? 'none' : 'block';
+    overlay.style.display = isOpen ? 'none' : 'block';
+    if (!isOpen) {
+        // Pré-remplir les filtres depuis la sélection courante
+        const secEl = document.getElementById('progressSection');
+        const clsEl = document.getElementById('progressClass');
+        if (currentData.sectionSelected && secEl) {
+            secEl.value = currentData.sectionSelected;
+            // Peupler les classes
+            clsEl.innerHTML = '<option value="">-- Classe --</option>';
+            (availableClassesBySection[currentData.sectionSelected] || []).forEach(c => {
+                const o = document.createElement('option'); o.value = c; o.textContent = c;
+                clsEl.appendChild(o);
+            });
+            if (currentData.classSelected) {
+                clsEl.value = currentData.classSelected;
+                loadProgressPanel();
+            }
+        }
+    }
+}
+
+async function loadProgressPanel() {
+    const section = document.getElementById('progressSection')?.value;
+    const classe  = document.getElementById('progressClass')?.value;
+    const content = document.getElementById('progressContent');
+    if (!section || !classe || !content) return;
+
+    content.innerHTML = '<p style="text-align:center;color:#6c757d;padding:20px;">⏳ Chargement...</p>';
+
+    try {
+        const response = await fetch('/api/studentProgress', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ classSelected: classe, sectionSelected: section })
+        });
+        const data = await response.json();
+        if (!data.students) { content.innerHTML = '<p style="color:red;">Erreur de chargement.</p>'; return; }
+
+        let html = '';
+        const totalSubjects = data.expectedSubjects?.length || 9;
+
+        data.students.forEach(student => {
+            const pctS1 = Math.round((student.s1Done / totalSubjects) * 100);
+            const pctS2 = Math.round((student.s2Done / totalSubjects) * 100);
+            const allDone = student.s1Done === totalSubjects && student.s2Done === totalSubjects;
+            const cardBorder = allDone ? '#198754' : (student.s1Done < totalSubjects || student.s2Done < totalSubjects ? '#ffc107' : '#dee2e6');
+
+            html += `<div style="border:2px solid ${cardBorder}; border-radius:8px; margin-bottom:12px; overflow:hidden;">`;
+            // Entête élève
+            html += `<div style="background:${allDone?'#198754':'#6f42c1'}; color:white; padding:8px 12px; display:flex; justify-content:space-between; align-items:center;">
+                <strong>${student.studentName}</strong>
+                <span style="font-size:0.85em;">S1: ${student.s1Done}/${totalSubjects} &nbsp;|&nbsp; S2: ${student.s2Done}/${totalSubjects}</span>
+            </div>`;
+            // Barres de progression
+            html += `<div style="padding:8px 12px 4px;">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                    <span style="font-size:0.8em; width:24px; color:#0d6efd;">S1</span>
+                    <div style="flex:1; background:#e9ecef; border-radius:4px; height:10px;">
+                        <div style="width:${pctS1}%; background:#0d6efd; border-radius:4px; height:10px; transition:width .3s;"></div>
+                    </div>
+                    <span style="font-size:0.8em; width:34px; text-align:right;">${pctS1}%</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="font-size:0.8em; width:24px; color:#198754;">S2</span>
+                    <div style="flex:1; background:#e9ecef; border-radius:4px; height:10px;">
+                        <div style="width:${pctS2}%; background:#198754; border-radius:4px; height:10px; transition:width .3s;"></div>
+                    </div>
+                    <span style="font-size:0.8em; width:34px; text-align:right;">${pctS2}%</span>
+                </div>
+            </div>`;
+
+            // Détail des matières manquantes / incomplètes
+            if (!allDone || student.incomplete?.length > 0) {
+                html += `<div style="padding:6px 12px 10px;">`;
+                student.subjectStatus.forEach(ss => {
+                    const s1ok = ss.s1.done && ss.s1.hasNotes;
+                    const s2ok = ss.s2.done && ss.s2.hasNotes;
+                    if (s1ok && s2ok) return; // tout bon, ne pas afficher
+                    const icon = (!ss.s1.done && !ss.s2.done) ? '❌' : (s1ok && !s2ok) ? '🟡' : (!s1ok && s2ok) ? '🟠' : '⚠️';
+                    const s1txt = ss.s1.done ? (ss.s1.hasNotes ? '✅' : '⚠️ notes') : '—';
+                    const s2txt = ss.s2.done ? (ss.s2.hasNotes ? '✅' : '⚠️ notes') : '—';
+                    html += `<div style="display:flex; justify-content:space-between; align-items:center; font-size:0.82em; padding:2px 0; border-bottom:1px solid #f0f0f0;">
+                        <span>${icon} ${ss.subject}</span>
+                        <span style="color:#6c757d;">S1: ${s1txt} &nbsp; S2: ${s2txt}</span>
+                    </div>`;
+                });
+                html += `</div>`;
+            }
+            html += `</div>`;
+        });
+
+        content.innerHTML = html || '<p style="color:#198754;text-align:center;padding:20px;">✅ Tout est complet !</p>';
+    } catch(e) {
+        content.innerHTML = `<p style="color:red;">Erreur: ${e.message}</p>`;
+    }
+}
+
+// Exposer pour index.html
+window.toggleProgressPanel = toggleProgressPanel;
+window.loadProgressPanel   = loadProgressPanel;
