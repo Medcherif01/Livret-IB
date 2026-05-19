@@ -307,11 +307,23 @@ function updateSemesterUI() {
 // =====================================================
 function handleSectionChange(value) {
     currentData.sectionSelected = value;
-    document.getElementById('step0').style.display = 'none';
+    // Reset state FIRST (before populating), but don't clear the grid we're about to fill
+    currentData.classSelected   = null;
+    currentData.studentSelected = null;
+    currentData.subjectSelected = null;
+    document.getElementById('step3').style.display = 'none';
+    studentInfoContainer.style.display = 'none';
+    contributionEntrySections.style.display = 'none';
+    dataContainer.style.display = 'none';
+    const studentGrid = document.getElementById('studentGrid');
+    if (studentGrid) studentGrid.innerHTML = '';
+    if (subjectsGrid) subjectsGrid.innerHTML = '';
+    resetFormData();
+    // Show class step and populate grid
+    document.getElementById('step0').style.display  = 'none';
     document.getElementById('step0b').style.display = 'none';
-    document.getElementById('step1').style.display = 'block';
+    document.getElementById('step1').style.display  = 'block';
     populateClassGrid(value);
-    resetOnSectionChange();
 }
 
 function populateClassGrid(section) {
@@ -1264,8 +1276,9 @@ function resetOnSectionChange() {
     studentInfoContainer.style.display = 'none';
     contributionEntrySections.style.display = 'none';
     dataContainer.style.display = 'none';
-    const classGrid = document.getElementById('classGrid'); if(classGrid) classGrid.innerHTML='';
+    // Note: classGrid is NOT cleared here — it's populated right after this call
     const studentGrid = document.getElementById('studentGrid'); if(studentGrid) studentGrid.innerHTML='';
+    if (subjectsGrid) subjectsGrid.innerHTML = '';
     currentData.classSelected = null;
     currentData.studentSelected = null;
     currentData.subjectSelected = null;
