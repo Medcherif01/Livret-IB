@@ -3,408 +3,399 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Système de gestion des livrets scolaires pour le Programme d'éducation intermédiaire (PEI) et le Programme du diplôme (DP) de l'IB">
-    <meta name="keywords" content="livret scolaire, IB, PEI, DP, éducation, contributions">
-    
-    <!-- Cache Control -->
+    <meta name="description" content="Livret scolaire IB — Système de gestion PEI/DP">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    
     <title>Livret scolaire IB</title>
-    
-    <!-- Favicons -->
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-    
-    <!-- Stylesheets -->
-    <link rel="stylesheet" href="style.css?v=2.4.0">
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css?v=3.0.0">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <header>
-        <h1>Livret scolaire <span id="semesterBadge" style="display:none; font-size:0.6em; padding:4px 12px; border-radius:20px; color:white; vertical-align:middle; margin-left:10px;"></span></h1>
-        <div class="header-buttons">
-            <button id="homeButton" onclick="goToHome()" style="background-color: #6c757d; margin-right: auto;" title="Retour à l'accueil">🏠 Accueil</button>
-            <button id="generateWordButton" onclick="generateAllWordsInSection()" title="Générer les livrets Word pour tous les élèves">Générer Tous les Livrets (Word)</button>
-            <button id="trackingButton" onclick="toggleProgressPanel()" style="background-color: #6f42c1;" title="Voir le suivi des contributions">📊 Suivi</button>
+
+<!-- ===== HEADER ===== -->
+<header>
+    <h1>
+        <span class="logo-icon">📋</span>Livret IB
+        <span id="semesterBadge" style="display:none;"></span>
+    </h1>
+    <div class="header-buttons">
+        <button id="homeButton" onclick="goToHome()" title="Retour à l'accueil">🏠 Accueil</button>
+        <button id="generateWordButton" onclick="generateAllWordsInSection()" title="Générer les livrets Word">📄 Générer Word</button>
+        <button id="trackingButton" onclick="toggleProgressPanel()" title="Suivi des contributions">📊 Suivi</button>
+    </div>
+    <div class="progress-container" id="progressContainer">
+        <div class="progress-bar" id="progressBar"></div>
+        <span class="progress-text" id="progressText"></span>
+    </div>
+</header>
+
+<!-- ===== MAIN ===== -->
+<main>
+
+    <!-- STEP 0: Semester choice -->
+    <section id="step0">
+        <p class="section-title"><span class="step-badge">1</span> Choisir un Semestre</p>
+        <div class="semester-grid">
+            <button class="semester-btn" id="sem1Btn" onclick="handleSemesterChange(1)">
+                <span>📘</span>
+                <strong>Semestre 1</strong>
+                <small>Saisie complète des notes</small>
+            </button>
+            <button class="semester-btn" id="sem2Btn" onclick="handleSemesterChange(2)">
+                <span>📗</span>
+                <strong>Semestre 2</strong>
+                <small>S1 modifiables + saisie S2</small>
+            </button>
         </div>
-        <div class="progress-container" id="progressContainer">
-            <div class="progress-bar" id="progressBar">
-                <span class="progress-text" id="progressText">0%</span>
+    </section>
+
+    <!-- STEP 0b: Section choice -->
+    <section id="step0b" style="display:none;">
+        <div class="back-btn-row">
+            <button class="back-btn" onclick="goBackToSemester()">← Retour</button>
+        </div>
+        <p class="section-title"><span class="step-badge">2</span> Choisir une Section</p>
+        <div class="section-grid">
+            <button class="section-btn garçons" onclick="handleSectionChange('garçons')">
+                <span class="btn-icon">👨‍🎓</span>
+                <strong>Garçons</strong>
+                <small>PEI1, PEI2, PEI3, PEI4, DP2</small>
+            </button>
+            <button class="section-btn filles" onclick="handleSectionChange('filles')">
+                <span class="btn-icon">👩‍🎓</span>
+                <strong>Filles</strong>
+                <small>PEI1, PEI2, PEI3, PEI4, PEI5, DP1, DP2</small>
+            </button>
+        </div>
+    </section>
+
+    <!-- STEP 1: Class icon grid -->
+    <section id="step1" style="display:none;">
+        <div class="back-btn-row">
+            <button class="back-btn" onclick="goBackToSection()">← Retour</button>
+        </div>
+        <p class="section-title"><span class="step-badge">3</span> Choisir une Classe</p>
+        <div class="class-grid" id="classGrid">
+            <!-- Generated by JS -->
+        </div>
+    </section>
+
+    <!-- STEP 3: Student cards -->
+    <section id="step3" style="display:none;">
+        <div class="back-btn-row">
+            <button class="back-btn" onclick="goBackToClass()">← Retour</button>
+        </div>
+        <p class="section-title"><span class="step-badge">4</span> Choisir un Élève</p>
+        <div class="student-grid" id="studentGrid">
+            <!-- Generated by JS -->
+        </div>
+    </section>
+
+    <!-- Student info + subject selection -->
+    <div id="studentInfoContainer" style="display:none;">
+        <div class="back-btn-row">
+            <button class="back-btn" onclick="goBackToStudent()">← Retour</button>
+        </div>
+
+        <!-- Student header -->
+        <div class="student-info-header">
+            <img id="studentPhotoPreview" class="student-info-avatar" style="display:none;" src="#" alt="Photo">
+            <div id="studentAvatarPlaceholder" class="student-info-avatar-placeholder">👤</div>
+            <div class="student-info-details">
+                <h2 id="studentNameDisplay"></h2>
+                <p id="studentClassBadge" style="opacity:.75;font-size:.88em;margin-top:2px;"></p>
+            </div>
+            <div class="student-info-actions">
+                <button onclick="showStudentData()" style="background:rgba(255,255,255,.15);color:white;border:1.5px solid rgba(255,255,255,.3);padding:8px 14px;border-radius:8px;font-size:.85em;font-weight:500;" title="Voir toutes les contributions">
+                    📋 Contributions
+                </button>
             </div>
         </div>
-    </header>
 
-    <main>
-        <div class="select-container">
-            <section id="step0">
-                <h2>1. Choisir un Semestre</h2>
-                <div class="section-buttons" style="margin-bottom: 20px;">
-                    <button class="semester-btn" id="sem1Btn" onclick="handleSemesterChange(1)" style="background-color: #0d6efd; color: white; font-size: 1.1em; padding: 15px 30px;">
-                        <span>📘</span> Semestre 1
-                        <small style="display:block;font-size:0.8em;margin-top:5px;">Saisie complète des notes</small>
-                    </button>
-                    <button class="semester-btn" id="sem2Btn" onclick="handleSemesterChange(2)" style="background-color: #198754; color: white; font-size: 1.1em; padding: 15px 30px;">
-                        <span>📗</span> Semestre 2
-                        <small style="display:block;font-size:0.8em;margin-top:5px;">Notes S1 modifiables, saisie S2</small>
-                    </button>
-                </div>
-                <div id="step0b" style="display:none;">
-                    <div class="back-btn-row">
-                        <button class="back-btn" onclick="goBackToSemester()">← Retour</button>
-                    </div>
-                    <h2>2. Choisir une Section</h2>
-                    <div class="section-buttons">
-                        <button class="garçons" onclick="handleSectionChange('garçons')">
-                            <span>👨‍🎓</span> Section des Garçons
-                            <small style="display:block;font-size:0.85em;margin-top:5px;">PEI1, PEI2, PEI3, PEI4, DP2</small>
-                        </button>
-                        <button class="filles" onclick="handleSectionChange('filles')">
-                            <span>👩‍🎓</span> Section des Filles
-                            <small style="display:block;font-size:0.85em;margin-top:5px;">PEI1, PEI2, PEI3, PEI4, PEI5, DP1, DP2</small>
-                        </button>
-                    </div>
-                </div>
-            </section>
-            
-            <section id="step1" style="display: none;">
-                <div class="back-btn-row">
-                    <button class="back-btn" onclick="goBackToSection()">← Retour</button>
-                </div>
-                <h2>3. Choisir une Classe</h2>
-                <select id="classSelector" onchange="handleClassChange(this.value)">
-                    <option value="">-- Sélectionnez une Classe --</option>
-                    <option value="PEI1">PEI1</option>
-                    <option value="PEI2">PEI2</option>
-                    <option value="PEI3">PEI3</option>
-                    <option value="PEI4">PEI4</option>
-                    <option value="PEI5">PEI5</option>
-                    <option value="DP1">DP1</option>
-                    <option value="DP2">DP2</option>
-                </select>
-            </section>
-            
-            <section id="step3" style="display: none;">
-                <div class="back-btn-row">
-                    <button class="back-btn" onclick="goBackToClass()">← Retour</button>
-                </div>
-                <h2>4. Choisir un Élève</h2>
-                <select id="studentSelector" onchange="handleStudentChange(this.value)">
-                    <option value="">-- Sélectionnez un élève --</option>
-                </select>
-            </section>
-        </div>
-
-        <div id="studentInfoContainer" class="data-container" style="display: none">
-            <div class="back-btn-row">
-                <button class="back-btn" onclick="goBackToStudent()">← Retour</button>
+        <!-- Birthdate row -->
+        <div class="student-info-body">
+            <div class="birthdate-container">
+                <label for="studentBirthdate">📅 Date de naissance :</label>
+                <input type="date" id="studentBirthdate" onchange="handleStudentBirthdateChange(this.value)">
             </div>
-            <h2>Informations Élève</h2>
-            <div class="student-info">
-                <div class="student-photo-birthdate-container">
-                    <img id="studentPhotoPreview" style="display: none;" src="#" alt="Photo de l'élève">
-                    <div class="birthdate-container">
-                        <label for="studentBirthdate">Date de naissance:</label>
-                        <input type="date" id="studentBirthdate" onchange="handleStudentBirthdateChange(this.value)" title="Date de naissance">
-                    </div>
-                </div>
-                <div>
-                    <label for="studentNameDisplay">Nom:</label>
-                    <p id="studentNameDisplay"></p>
-                </div>
-                <div class="student-info-buttons">
-                    <button onclick="showStudentData();" title="Voir toutes les contributions">Afficher Contributions</button>
-                </div>
+        </div>
+
+        <!-- Subject selection -->
+        <section id="step2" style="display:none; margin:0; border:none; box-shadow:none; border-top:1px solid #e5e7eb; border-radius:0 0 14px 14px;">
+            <p class="section-title" style="margin-top:0;"><span class="step-badge">5</span> Choisir une Matière</p>
+            <div id="subjectsGrid" class="subjects-grid"></div>
+        </section>
+    </div>
+
+    <!-- Contribution entry form -->
+    <div id="contributionEntrySections" style="display:none;">
+
+        <!-- French criteria section -->
+        <section id="communicationTable" class="french-section">
+            <p class="section-title">🎯 Compétences Approche de l'Apprentissage (ATL)</p>
+            <p style="font-size:.82em;color:var(--gray-500);margin:0 0 12px;">
+                <strong>E</strong> : Excellent &nbsp;|&nbsp; <strong>A</strong> : Acquis &nbsp;|&nbsp;
+                <strong>PA</strong> : Partiellement Acquis &nbsp;|&nbsp; <strong>I</strong> : Insuffisant
+            </p>
+            <div style="overflow-x:auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>Communication</th>
+                        <th>Collaboration</th>
+                        <th>Autogestion</th>
+                        <th>Recherche</th>
+                        <th>Réflexion</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <th style="background:var(--gray-50);font-weight:600;">Évaluation</th>
+                        <td><select onchange="handleCommunicationChange()"><option value=""></option><option>E</option><option>A</option><option>PA</option><option>I</option></select></td>
+                        <td><select onchange="handleCommunicationChange()"><option value=""></option><option>E</option><option>A</option><option>PA</option><option>I</option></select></td>
+                        <td><select onchange="handleCommunicationChange()"><option value=""></option><option>E</option><option>A</option><option>PA</option><option>I</option></select></td>
+                        <td><select onchange="handleCommunicationChange()"><option value=""></option><option>E</option><option>A</option><option>PA</option><option>I</option></select></td>
+                        <td><select onchange="handleCommunicationChange()"><option value=""></option><option>E</option><option>A</option><option>PA</option><option>I</option></select></td>
+                    </tr>
+                </tbody>
+            </table>
             </div>
-            
-            <section id="step2" style="display: none; margin-top: 20px; padding: 15px;">
-                <h2>5. Choisir une Matière</h2>
-                <div id="subjectsGrid" class="subjects-grid">
-                    <!-- Les cartes de matières seront générées dynamiquement par JavaScript -->
-                </div>
-            </section>
-        </div>
+        </section>
 
-        <div id="contributionEntrySections" style="display: none;">
-            <!-- Section Française -->
-            <section id="communicationTable" class="french-section">
-                <h2>Critères Initiaux (Compétences Approche de l'Apprentissage)</h2>
-                <p style="font-size: 0.9em; color: #6c757d;">
-                    <span style="font-weight: bold;">E</span>: Excellent | 
-                    <span style="font-weight: bold;">A</span>: Acquis | 
-                    <span style="font-weight: bold;">PA</span>: Partiellement Acquis | 
-                    <span style="font-weight: bold;">I</span>: Insuffisant
-                </p>
-                <table>
-                    <thead>
-                        <tr>
-                            <th></th>
-                            <th>Communication</th>
-                            <th>Collaboration</th>
-                            <th>Autogestion</th>
-                            <th>Recherche</th>
-                            <th>Réflexion</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <th>Évaluation</th>
-                            <td><select onchange="handleCommunicationChange()"><option value=""></option><option>E</option><option>A</option><option>PA</option><option>I</option></select></td>
-                            <td><select onchange="handleCommunicationChange()"><option value=""></option><option>E</option><option>A</option><option>PA</option><option>I</option></select></td>
-                            <td><select onchange="handleCommunicationChange()"><option value=""></option><option>E</option><option>A</option><option>PA</option><option>I</option></select></td>
-                            <td><select onchange="handleCommunicationChange()"><option value=""></option><option>E</option><option>A</option><option>PA</option><option>I</option></select></td>
-                            <td><select onchange="handleCommunicationChange()"><option value=""></option><option>E</option><option>A</option><option>PA</option><option>I</option></select></td>
-                        </tr>
-                    </tbody>
-                </table>
-            </section>
-            
-            <!-- Section Arabe -->
-            <section id="communicationTableArabic" class="arabic-section" style="display: none; direction: rtl; text-align: right;">
-                <h2>المعايير الأولية (كفاءات مهارات التعلم)</h2>
-                <p style="font-size: 0.9em; color: #6c757d;">
-                    <span style="font-weight: bold;">E</span>: Excellent (ممتاز) | 
-                    <span style="font-weight: bold;">A</span>: Acquis (مكتسب) | 
-                    <span style="font-weight: bold;">PA</span>: Partiellement Acquis (مكتسب جزئياً) | 
-                    <span style="font-weight: bold;">I</span>: Insuffisant (غير كافٍ)
-                </p>
-                <table dir="rtl">
-                    <thead>
-                        <tr>
-                            <th></th>
-                            <th>التواصل</th>
-                            <th>التعاون</th>
-                            <th>الإدارة الذاتية</th>
-                            <th>البحث</th>
-                            <th>التفكير</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <th>التقييم</th>
-                            <td><select onchange="handleCommunicationChange()"><option value=""></option><option>E</option><option>A</option><option>PA</option><option>I</option></select></td>
-                            <td><select onchange="handleCommunicationChange()"><option value=""></option><option>E</option><option>A</option><option>PA</option><option>I</option></select></td>
-                            <td><select onchange="handleCommunicationChange()"><option value=""></option><option>E</option><option>A</option><option>PA</option><option>I</option></select></td>
-                            <td><select onchange="handleCommunicationChange()"><option value=""></option><option>E</option><option>A</option><option>PA</option><option>I</option></select></td>
-                            <td><select onchange="handleCommunicationChange()"><option value=""></option><option>E</option><option>A</option><option>PA</option><option>I</option></select></td>
-                        </tr>
-                    </tbody>
-                </table>
-            </section>
-            
-            <!-- Section Française -->
-            <section id="criteriaTable" class="french-section">
-                <h2>Critères d'Évaluation (Matière)</h2>
-                <div id="s2InfoBanner" style="display:none; background:#d6e4ff; border:1px solid #4096ff; border-radius:6px; padding:8px 14px; margin-bottom:12px; font-size:0.92em; color:#003a8c;">
-                    📘 <strong>Semestre 2</strong> — Les notes S1 (fond bleu) sont <strong>modifiables</strong> et seront sauvegardées dans S1. Saisissez les notes S2 dans les colonnes blanches.
-                </div>
-                <div style="margin-bottom: 15px; padding: 10px; background-color: #f8f9fa; border-radius: 5px;">
-                    <label style="margin-right: 15px;">
-                        <strong>Nombre d'unités - Semestre 1:</strong>
-                        <select id="unitsSem1Selector" onchange="handleUnitsChange()" style="margin-left: 5px; padding: 5px;">
-                            <option value="1">1 unité (note directe)</option>
-                            <option value="2">2 unités</option>
-                            <option value="3">3 unités</option>
-                            <option value="4">4 unités</option>
-                            <option value="5">5 unités</option>
-                        </select>
-                    </label>
-                    <label>
-                        <strong>Nombre d'unités - Semestre 2:</strong>
-                        <select id="unitsSem2Selector" onchange="handleUnitsChange()" style="margin-left: 5px; padding: 5px;">
-                            <option value="1">1 unité (note directe)</option>
-                            <option value="2">2 unités</option>
-                            <option value="3">3 unités</option>
-                            <option value="4">4 unités</option>
-                            <option value="5">5 unités</option>
-                        </select>
-                    </label>
-                </div>
-                <table id="criteriaTableElement">
-                    <thead id="criteriaTableHead">
-                        <tr>
-                            <th>Critères</th>
-                            <th>Semestre 1 (/8)</th>
-                            <th>Semestre 2 (/8)</th>
-                            <th>Niveau Final (/8)</th>
-                            <th>Seuil Total (/32)</th>
-                            <th>Note Finale (/8)</th>
-                        </tr>
-                    </thead>
-                    <tbody id="criteriaTableBody">
-                        <tr data-criteria="A">
-                            <td>A</td>
-                            <td class="sem1-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td>
-                            <td class="sem2-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td>
-                            <td><input type="number" readonly tabindex="-1" class="final-level-input"></td>
-                            <td rowspan="4"><input id="threshold" type="number" readonly tabindex="-1" style="background-color: #e9ecef;"></td>
-                            <td rowspan="4"><input id="finalNote" type="number" readonly tabindex="-1" style="background-color: #e9ecef;"></td>
-                        </tr>
-                        <tr data-criteria="B">
-                            <td>B</td>
-                            <td class="sem1-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td>
-                            <td class="sem2-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td>
-                            <td><input type="number" readonly tabindex="-1" class="final-level-input"></td>
-                        </tr>
-                        <tr data-criteria="C">
-                            <td>C</td>
-                            <td class="sem1-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td>
-                            <td class="sem2-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td>
-                            <td><input type="number" readonly tabindex="-1" class="final-level-input"></td>
-                        </tr>
-                        <tr data-criteria="D">
-                            <td>D</td>
-                            <td class="sem1-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td>
-                            <td class="sem2-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td>
-                            <td><input type="number" readonly tabindex="-1" class="final-level-input"></td>
-                        </tr>
-                    </tbody>
-                </table>
-                <h3>Commentaires</h3>
-                <textarea id="teacherComment" rows="4" placeholder="Écrivez vos commentaires ici..." oninput="handleCommentChange(this.value)" onchange="handleCommentChange(this.value)"></textarea>
-                <h3>Nom de l'enseignant</h3>
-                <input id="teacherName" placeholder="Entrez votre nom" onchange="handleTeacherNameChange(this.value)">
-                <div style="text-align: right; margin-top: 20px;">
-                    <button id="submitButton" onclick="submitForm()">Soumettre / Mettre à jour</button>
-                </div>
-            </section>
-            
-            <!-- Section Arabe -->
-            <section id="criteriaTableArabic" class="arabic-section" style="display: none; direction: rtl; text-align: right;">
-                <h2>معايير التقييم (المادة)</h2>
-                <div id="s2InfoBannerArabic" style="display:none; background:#d6e4ff; border:1px solid #4096ff; border-radius:6px; padding:8px 14px; margin-bottom:12px; font-size:0.92em; color:#003a8c; direction:rtl;">
-                    📘 <strong>الفصل الثاني</strong> — درجات الفصل الأول (خلفية زرقاء) <strong>قابلة للتعديل</strong> وستحفظ في سجل فصل 1. أدخل درجات الفصل الثاني في الخانات البيضاء.
-                </div>
-                <div style="margin-bottom: 15px; padding: 10px; background-color: #f8f9fa; border-radius: 5px; direction: rtl;">
-                    <label style="margin-left: 15px;">
-                        <strong>عدد الوحدات - الفصل الأول:</strong>
-                        <select id="unitsSem1SelectorArabic" onchange="handleUnitsChange()" style="margin-right: 5px; padding: 5px;">
-                            <option value="1">وحدة واحدة (درجة مباشرة)</option>
-                            <option value="2">وحدتان</option>
-                            <option value="3">3 وحدات</option>
-                            <option value="4">4 وحدات</option>
-                            <option value="5">5 وحدات</option>
-                        </select>
-                    </label>
-                    <label>
-                        <strong>عدد الوحدات - الفصل الثاني:</strong>
-                        <select id="unitsSem2SelectorArabic" onchange="handleUnitsChange()" style="margin-right: 5px; padding: 5px;">
-                            <option value="1">وحدة واحدة (درجة مباشرة)</option>
-                            <option value="2">وحدتان</option>
-                            <option value="3">3 وحدات</option>
-                            <option value="4">4 وحدات</option>
-                            <option value="5">5 وحدات</option>
-                        </select>
-                    </label>
-                </div>
-                <table id="criteriaTableElementArabic" dir="rtl">
-                    <thead id="criteriaTableHeadArabic">
-                        <tr>
-                            <th>المعايير</th>
-                            <th>الفصل الأول (/8)</th>
-                            <th>الفصل الثاني (/8)</th>
-                            <th>المستوى النهائي (/8)</th>
-                            <th>المجموع الكلي (/32)</th>
-                            <th>الدرجة النهائية (/8)</th>
-                        </tr>
-                    </thead>
-                    <tbody id="criteriaTableBodyArabic">
-                        <tr data-criteria="A">
-                            <td>الاستماع</td>
-                            <td class="sem1-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td>
-                            <td class="sem2-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td>
-                            <td><input type="number" readonly tabindex="-1" class="final-level-input"></td>
-                            <td rowspan="4"><input id="thresholdArabic" type="number" readonly tabindex="-1" style="background-color: #e9ecef;"></td>
-                            <td rowspan="4"><input id="finalNoteArabic" type="number" readonly tabindex="-1" style="background-color: #e9ecef;"></td>
-                        </tr>
-                        <tr data-criteria="B">
-                            <td>القراءة</td>
-                            <td class="sem1-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td>
-                            <td class="sem2-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td>
-                            <td><input type="number" readonly tabindex="-1" class="final-level-input"></td>
-                        </tr>
-                        <tr data-criteria="C">
-                            <td>التحدث</td>
-                            <td class="sem1-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td>
-                            <td class="sem2-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td>
-                            <td><input type="number" readonly tabindex="-1" class="final-level-input"></td>
-                        </tr>
-                        <tr data-criteria="D">
-                            <td>الكتابة</td>
-                            <td class="sem1-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td>
-                            <td class="sem2-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td>
-                            <td><input type="number" readonly tabindex="-1" class="final-level-input"></td>
-                        </tr>
-                    </tbody>
-                </table>
-                <h3>التعليقات</h3>
-                <textarea id="teacherCommentArabic" rows="4" placeholder="اكتب تعليقاتك هنا..." oninput="handleCommentChange(this.value)" onchange="handleCommentChange(this.value)" dir="rtl" style="text-align: right;"></textarea>
-                <h3>اسم المعلم</h3>
-                <input id="teacherNameArabic" placeholder="أدخل اسمك" onchange="handleTeacherNameChange(this.value)">
-                <div style="text-align: left; margin-top: 20px;">
-                    <button id="submitButtonArabic" onclick="submitForm()">إرسال / تحديث</button>
-                </div>
-            </section>
-        </div>
-
-        <div class="data-container" id="dataContainer"></div>
-    </main>
-
-    <!-- Panneau Suivi / Bilan (Feature 3) -->
-    <div id="progressPanel" style="display:none; position:fixed; top:0; right:0; width:420px; max-width:95vw; height:100vh; background:white; box-shadow:-4px 0 20px rgba(0,0,0,0.18); z-index:9999; overflow-y:auto; padding:0;">
-        <div style="background:#6f42c1; color:white; padding:14px 18px; display:flex; justify-content:space-between; align-items:center; position:sticky; top:0; z-index:10;">
-            <span style="font-weight:600; font-size:1.05em;">📊 Suivi des contributions</span>
-            <button onclick="toggleProgressPanel()" style="background:rgba(255,255,255,0.2); border:none; color:white; font-size:1.2em; cursor:pointer; padding:2px 8px; border-radius:4px;">×</button>
-        </div>
-        <div style="padding:14px;">
-            <div id="progressPanelFilters" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
-                <select id="progressSection" style="flex:1; padding:6px; border:1px solid #ced4da; border-radius:4px;">
-                    <option value="">-- Section --</option>
-                    <option value="garçons">Garçons</option>
-                    <option value="filles">Filles</option>
-                </select>
-                <select id="progressClass" onchange="loadProgressPanel()" style="flex:1; padding:6px; border:1px solid #ced4da; border-radius:4px;">
-                    <option value="">-- Classe --</option>
-                </select>
+        <!-- Arabic criteria section -->
+        <section id="communicationTableArabic" class="arabic-section" style="display:none; direction:rtl; text-align:right;">
+            <p class="section-title">🎯 المعايير الأولية (كفاءات مهارات التعلم)</p>
+            <p style="font-size:.82em;color:var(--gray-500);margin:0 0 12px;">
+                <strong>E</strong>: ممتاز | <strong>A</strong>: مكتسب | <strong>PA</strong>: مكتسب جزئياً | <strong>I</strong>: غير كافٍ
+            </p>
+            <div style="overflow-x:auto;">
+            <table dir="rtl">
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>التواصل</th>
+                        <th>التعاون</th>
+                        <th>الإدارة الذاتية</th>
+                        <th>البحث</th>
+                        <th>التفكير</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <th style="background:var(--gray-50);font-weight:600;">التقييم</th>
+                        <td><select onchange="handleCommunicationChange()"><option value=""></option><option>E</option><option>A</option><option>PA</option><option>I</option></select></td>
+                        <td><select onchange="handleCommunicationChange()"><option value=""></option><option>E</option><option>A</option><option>PA</option><option>I</option></select></td>
+                        <td><select onchange="handleCommunicationChange()"><option value=""></option><option>E</option><option>A</option><option>PA</option><option>I</option></select></td>
+                        <td><select onchange="handleCommunicationChange()"><option value=""></option><option>E</option><option>A</option><option>PA</option><option>I</option></select></td>
+                        <td><select onchange="handleCommunicationChange()"><option value=""></option><option>E</option><option>A</option><option>PA</option><option>I</option></select></td>
+                    </tr>
+                </tbody>
+            </table>
             </div>
-            <div id="progressContent"><p style="color:#6c757d; text-align:center; margin-top:30px;">Sélectionnez une section et une classe.</p></div>
+        </section>
+
+        <!-- French criteria table -->
+        <section id="criteriaTable" class="french-section">
+            <p class="section-title">📊 Critères d'Évaluation — <span id="subjectNameBadge" style="color:var(--blue);font-weight:700;"></span></p>
+
+            <div id="s2InfoBanner" style="display:none;" class="s2-banner">
+                📘 <span><strong>Semestre 2</strong> — Notes S1 (fond bleu) <strong>modifiables</strong>, sauvegardées dans S1. Colonnes blanches = S2.</span>
+            </div>
+
+            <div class="units-row">
+                <label>
+                    <strong>Unités S1 :</strong>
+                    <select id="unitsSem1Selector" onchange="handleUnitsChange()">
+                        <option value="1">1 unité</option>
+                        <option value="2">2 unités</option>
+                        <option value="3">3 unités</option>
+                        <option value="4">4 unités</option>
+                        <option value="5">5 unités</option>
+                    </select>
+                </label>
+                <label>
+                    <strong>Unités S2 :</strong>
+                    <select id="unitsSem2Selector" onchange="handleUnitsChange()">
+                        <option value="1">1 unité</option>
+                        <option value="2">2 unités</option>
+                        <option value="3">3 unités</option>
+                        <option value="4">4 unités</option>
+                        <option value="5">5 unités</option>
+                    </select>
+                </label>
+            </div>
+
+            <div style="overflow-x:auto;">
+            <table id="criteriaTableElement">
+                <thead id="criteriaTableHead">
+                    <tr>
+                        <th>Critères</th>
+                        <th>Semestre 1 (/8)</th>
+                        <th>Semestre 2 (/8)</th>
+                        <th>Niveau Final (/8)</th>
+                        <th>Seuil (/32)</th>
+                        <th>Note (/8)</th>
+                    </tr>
+                </thead>
+                <tbody id="criteriaTableBody">
+                    <tr data-criteria="A"><td>A</td><td class="sem1-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td><td class="sem2-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td><td><input type="number" readonly tabindex="-1" class="final-level-input"></td><td rowspan="4"><input id="threshold" type="number" readonly tabindex="-1"></td><td rowspan="4"><input id="finalNote" type="number" readonly tabindex="-1"></td></tr>
+                    <tr data-criteria="B"><td>B</td><td class="sem1-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td><td class="sem2-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td><td><input type="number" readonly tabindex="-1" class="final-level-input"></td></tr>
+                    <tr data-criteria="C"><td>C</td><td class="sem1-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td><td class="sem2-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td><td><input type="number" readonly tabindex="-1" class="final-level-input"></td></tr>
+                    <tr data-criteria="D"><td>D</td><td class="sem1-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td><td class="sem2-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td><td><input type="number" readonly tabindex="-1" class="final-level-input"></td></tr>
+                </tbody>
+            </table>
+            </div>
+
+            <div class="form-group" style="margin-top:18px;">
+                <label>💬 Commentaires</label>
+                <textarea id="teacherComment" rows="4" placeholder="Écrivez vos commentaires ici..." oninput="handleCommentChange(this.value)"></textarea>
+            </div>
+            <div class="form-group">
+                <label>👤 Nom de l'enseignant</label>
+                <input type="text" id="teacherName" placeholder="Entrez votre nom" onchange="handleTeacherNameChange(this.value)">
+            </div>
+            <div style="text-align:right; margin-top:20px;">
+                <button id="submitButton" onclick="submitForm()">✅ Soumettre / Mettre à jour</button>
+            </div>
+        </section>
+
+        <!-- Arabic criteria table -->
+        <section id="criteriaTableArabic" class="arabic-section" style="display:none; direction:rtl; text-align:right;">
+            <p class="section-title" style="flex-direction:row-reverse;">📊 معايير التقييم (المادة)</p>
+
+            <div id="s2InfoBannerArabic" style="display:none;" class="s2-banner" dir="rtl">
+                📘 <span><strong>الفصل الثاني</strong> — درجات S1 (خلفية زرقاء) قابلة للتعديل وستُحفظ في S1.</span>
+            </div>
+
+            <div class="units-row" style="direction:rtl;">
+                <label>
+                    <strong>وحدات ف1 :</strong>
+                    <select id="unitsSem1SelectorArabic" onchange="handleUnitsChange()">
+                        <option value="1">وحدة واحدة</option>
+                        <option value="2">وحدتان</option>
+                        <option value="3">3 وحدات</option>
+                        <option value="4">4 وحدات</option>
+                        <option value="5">5 وحدات</option>
+                    </select>
+                </label>
+                <label>
+                    <strong>وحدات ف2 :</strong>
+                    <select id="unitsSem2SelectorArabic" onchange="handleUnitsChange()">
+                        <option value="1">وحدة واحدة</option>
+                        <option value="2">وحدتان</option>
+                        <option value="3">3 وحدات</option>
+                        <option value="4">4 وحدات</option>
+                        <option value="5">5 وحدات</option>
+                    </select>
+                </label>
+            </div>
+
+            <div style="overflow-x:auto;">
+            <table id="criteriaTableElementArabic" dir="rtl">
+                <thead id="criteriaTableHeadArabic">
+                    <tr>
+                        <th>المعايير</th>
+                        <th>الفصل الأول (/8)</th>
+                        <th>الفصل الثاني (/8)</th>
+                        <th>المستوى النهائي (/8)</th>
+                        <th>المجموع (/32)</th>
+                        <th>الدرجة (/8)</th>
+                    </tr>
+                </thead>
+                <tbody id="criteriaTableBodyArabic">
+                    <tr data-criteria="A"><td>الاستماع</td><td class="sem1-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td><td class="sem2-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td><td><input type="number" readonly tabindex="-1" class="final-level-input"></td><td rowspan="4"><input id="thresholdArabic" type="number" readonly tabindex="-1"></td><td rowspan="4"><input id="finalNoteArabic" type="number" readonly tabindex="-1"></td></tr>
+                    <tr data-criteria="B"><td>القراءة</td><td class="sem1-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td><td class="sem2-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td><td><input type="number" readonly tabindex="-1" class="final-level-input"></td></tr>
+                    <tr data-criteria="C"><td>التحدث</td><td class="sem1-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td><td class="sem2-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td><td><input type="number" readonly tabindex="-1" class="final-level-input"></td></tr>
+                    <tr data-criteria="D"><td>الكتابة</td><td class="sem1-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td><td class="sem2-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td><td><input type="number" readonly tabindex="-1" class="final-level-input"></td></tr>
+                </tbody>
+            </table>
+            </div>
+
+            <div class="form-group" style="margin-top:18px;">
+                <label>💬 التعليقات</label>
+                <textarea id="teacherCommentArabic" rows="4" placeholder="اكتب تعليقاتك هنا..." oninput="handleCommentChange(this.value)" dir="rtl" style="text-align:right;"></textarea>
+            </div>
+            <div class="form-group">
+                <label>👤 اسم المعلم</label>
+                <input type="text" id="teacherNameArabic" placeholder="أدخل اسمك" onchange="handleTeacherNameChange(this.value)">
+            </div>
+            <div style="text-align:left; margin-top:20px;">
+                <button id="submitButtonArabic" onclick="submitForm()">✅ إرسال / تحديث</button>
+            </div>
+        </section>
+    </div>
+
+    <!-- Contributions data container -->
+    <div class="data-container" id="dataContainer"></div>
+
+</main>
+
+<!-- ===== PROGRESS PANEL ===== -->
+<div id="progressPanel">
+    <div class="progress-panel-header">
+        <span>📊 Suivi des contributions</span>
+        <button class="progress-panel-close" onclick="toggleProgressPanel()">×</button>
+    </div>
+    <div class="progress-panel-filters">
+        <select id="progressSection">
+            <option value="">— Section —</option>
+            <option value="garçons">Garçons</option>
+            <option value="filles">Filles</option>
+        </select>
+        <select id="progressClass" onchange="loadProgressPanel()">
+            <option value="">— Classe —</option>
+        </select>
+    </div>
+    <div class="progress-panel-body">
+        <div id="progressContent">
+            <p style="color:var(--gray-500);text-align:center;margin-top:30px;">
+                Sélectionnez une section et une classe.
+            </p>
         </div>
     </div>
-    <div id="progressOverlay" onclick="toggleProgressPanel()" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.25); z-index:9998;"></div>
+</div>
+<div id="progressOverlay" onclick="toggleProgressPanel()"></div>
 
-    <script src="/script.js?v=2.4.0"></script>
-    <script>
-        // script.js charge toutes les fonctions et variables requises.
-        // Ici, nous n'ajoutons que les handlers nécessaires pour les attributs HTML inline.
-        window.goToHome = goToHome;
-        window.goBackToSemester = goBackToSemester;
-        window.goBackToSection = goBackToSection;
-        window.goBackToClass = goBackToClass;
-        window.goBackToStudent = goBackToStudent;
-        window.handleSemesterChange = handleSemesterChange;
-        window.handleSectionChange = handleSectionChange;
-        window.handleClassChange = handleClassChange;
-        window.handleStudentChange = handleStudentChange;
-        window.handleSubjectChange = handleSubjectChange;
-        window.handleCommunicationChange = handleCommunicationChange;
-        window.handleTeacherNameChange = handleTeacherNameChange;
-        window.handleStudentBirthdateChange = handleStudentBirthdateChange;
-        window.handleUnitsChange = handleUnitsChange;
-        window.validateInput = validateInput;
-        window.submitForm = submitForm;
-        window.showStudentData = showStudentData;
-        window.toggleContributionDetails = toggleContributionDetails;
-        window.editContribution = editContribution;
-        window.deleteContribution = deleteContribution;
-        window.generateAllWordsInSection = generateAllWordsInSection;
-        window.generateExcel = generateExcel;
-        window.toggleProgressPanel = toggleProgressPanel;
-        window.loadProgressPanel   = loadProgressPanel;
+<!-- ===== TOAST CONTAINER ===== -->
+<div class="toast-container" id="toastContainer"></div>
 
-        document.addEventListener('DOMContentLoaded', () => {
-            console.log('Application prête.');
-        });
-    </script>
+<!-- ===== SCRIPTS ===== -->
+<script src="/script.js?v=3.0.0"></script>
+<script>
+    // Expose global handlers used by inline HTML attributes
+    window.goToHome                  = goToHome;
+    window.goBackToSemester          = goBackToSemester;
+    window.goBackToSection           = goBackToSection;
+    window.goBackToClass             = goBackToClass;
+    window.goBackToStudent           = goBackToStudent;
+    window.handleSemesterChange      = handleSemesterChange;
+    window.handleSectionChange       = handleSectionChange;
+    window.handleClassChange         = handleClassChange;
+    window.handleStudentChange       = handleStudentChange;
+    window.handleSubjectChange       = handleSubjectChange;
+    window.handleCommunicationChange = handleCommunicationChange;
+    window.handleTeacherNameChange   = handleTeacherNameChange;
+    window.handleStudentBirthdateChange = handleStudentBirthdateChange;
+    window.handleUnitsChange         = handleUnitsChange;
+    window.validateInput             = validateInput;
+    window.submitForm                = submitForm;
+    window.showStudentData           = showStudentData;
+    window.toggleContributionDetails = toggleContributionDetails;
+    window.editContribution          = editContribution;
+    window.deleteContribution        = deleteContribution;
+    window.generateAllWordsInSection = generateAllWordsInSection;
+    window.generateExcel             = generateExcel;
+    window.toggleProgressPanel       = toggleProgressPanel;
+    window.loadProgressPanel         = loadProgressPanel;
+    window.navigateToContribution    = navigateToContribution;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        console.log('✅ Livret IB v3.0 prêt.');
+    });
+</script>
 </body>
 </html>

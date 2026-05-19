@@ -1,11 +1,15 @@
-// Variables globales
-let currentSemester = 1; // 1 = Semestre 1, 2 = Semestre 2
+// =====================================================
+// LIVRET IB — script.js v3.0
+// =====================================================
+
+// ---- Global state ----
+let currentSemester = 1;
 
 let currentData = {
     contributionId: null,
     teacherName: localStorage.getItem('teacherName') || null,
     classSelected: null,
-    sectionSelected: null, // Pas d'auto-sélection
+    sectionSelected: null,
     subjectSelected: null,
     studentSelected: null,
     studentBirthdate: null,
@@ -24,1531 +28,923 @@ let currentData = {
 
 let currentContributionId = null;
 
-// Éléments DOM
-const progressBarContainer = document.getElementById('progressContainer');
-const progressBar = document.getElementById('progressBar');
-const progressText = document.getElementById('progressText');
-const studentInfoContainer = document.getElementById('studentInfoContainer');
+// ---- DOM refs ----
+const progressBarContainer   = document.getElementById('progressContainer');
+const progressBar             = document.getElementById('progressBar');
+const progressText            = document.getElementById('progressText');
+const studentInfoContainer    = document.getElementById('studentInfoContainer');
 const contributionEntrySections = document.getElementById('contributionEntrySections');
-const submitButton = document.getElementById('submitButton');
-const teacherNameInput = document.getElementById('teacherName');
-const classSelector = document.getElementById('classSelector');
-const studentSelector = document.getElementById('studentSelector');
-const subjectsGrid = document.getElementById('subjectsGrid');
-const dataContainer = document.getElementById('dataContainer');
-const studentBirthdateInput = document.getElementById('studentBirthdate');
+const submitButton            = document.getElementById('submitButton');
+const teacherNameInput        = document.getElementById('teacherName');
+const subjectsGrid            = document.getElementById('subjectsGrid');
+const dataContainer           = document.getElementById('dataContainer');
+const studentBirthdateInput   = document.getElementById('studentBirthdate');
 
-// Données des étudiants - PRÉNOMS (pour la DB) avec mapping vers noms complets
+// =====================================================
+// DATA — Students, classes, subjects, criteria
+// =====================================================
+
 const studentData = {
-    // Garçons - Tous avec nom complet
-    'Faysal': {fullName: 'Faysal Achar', birthdate: '2014-04-15', photo: 'https://lh3.googleusercontent.com/d/1IB6BKROX3TRxaIIHVVVWbB7-Ii-V8VrC'},
-    'Bilal': {fullName: 'Bilal Molina', birthdate: '2015-02-15', photo: 'https://lh3.googleusercontent.com/d/1B0QUZJhpSad5Fs3qRTugUe4oyTlUDEVu'},
-    'Jad': {fullName: 'Jad Mahayni', birthdate: '2014-08-15', photo: 'https://lh3.googleusercontent.com/d/1VLvrWjeJwaClf4pSaLiwjnS79N-HrsFr'},
-    'Manaf': {fullName: 'Manaf Kotbi', birthdate: '2014-08-15', photo: 'https://lh3.googleusercontent.com/d/1h46Tqtqcp5tNqdY62wV6pyZFYknCEMWY'},
-    'Ahmed': {fullName: 'Ahmed Bouaziz', birthdate: '2013-09-15', photo: 'https://lh3.googleusercontent.com/d/1cDF-yegSB2tqsWac0AoNttbi8qAALYT1'},
-    'Yasser': {fullName: 'Yasser Younes', birthdate: '2013-08-15', photo: 'https://lh3.googleusercontent.com/d/1UUrrAJV_bgFNktGDinDkSrpwSZz-e47T'},
-    'Eyad': {fullName: 'Eyad Hassan', birthdate: '2013-04-15', photo: 'https://lh3.googleusercontent.com/d/1HGyWS4cC1jWWD25Ah3WcT_eIbUHqFzJ1'},
-    'Ali': {fullName: 'Ali Kutbi', birthdate: '2013-04-15', photo: 'https://lh3.googleusercontent.com/d/1bN-fDf_IWkXoW3WjSOXI5_M4KkL3FDKr'},
-    'Seifeddine': {fullName: 'Seifeddine Ayadi', birthdate: '2012-01-15', photo: 'https://lh3.googleusercontent.com/d/1tWdPSbtCAsTMB86WzDgqh3Xw01ahm9s6'},
-    'Mohamed Chalak': {fullName: 'Mohamed Chalak', birthdate: '2011-11-15', photo: 'https://lh3.googleusercontent.com/d/1lB8ObGOvQDVT6FITL2y7C5TYmAGyggFn'},
-    'Wajih': {fullName: 'Wajih Sabadine', birthdate: '2012-06-15', photo: 'https://lh3.googleusercontent.com/d/1MH6M05mQamOHevmDffVFNpSFNnxqbxs3'},
-    'Ahmad': {fullName: 'Ahmad Mahayni', birthdate: '2012-02-15', photo: 'https://lh3.googleusercontent.com/d/1zU-jBuAbYjHanzank9C1BAd00skS1Y5J'},
-    'Adam': {fullName: 'Adam Kaaki', birthdate: '2012-12-15', photo: 'https://lh3.googleusercontent.com/d/15I9p6VSnn1yVmPxRRbGsUkM-fsBKYOWF'},
-    'Mohamed Younes': {fullName: 'Mohamed Younes', birthdate: '2011-11-15', photo: 'https://lh3.googleusercontent.com/d/1wzraoZY_lRafcDXeaxSBeX5cIU57p4xA'},
-    'Mohamed Amine Sgheir': {fullName: 'Mohamed Amine Sgheir', birthdate: '2012-12-15', photo: 'https://lh3.googleusercontent.com/d/1UrBw6guz0oBTUy8COGeewIs3XAK773bR'},
-    'Samir': {fullName: 'Samir Kaaki', birthdate: '2012-12-15', photo: 'https://lh3.googleusercontent.com/d/1NdaCH8CU0DJFHXw4D0lItP-QnCswl23b'},
-    'Abdulrahman': {fullName: 'Abdulrahman Bouaziz', birthdate: '2012-04-15', photo: 'https://lh3.googleusercontent.com/d/1yCTO5StU2tnPY0BEynnWzUveljMIUcLE'},
-    'Youssef': {fullName: 'Youssef Baakak', birthdate: '2011-11-15', photo: 'https://lh3.googleusercontent.com/d/1Bygg5-PYrjjMOZdI5hAe16eZ8ltn772e'},
-    'Habib': {fullName: 'Habib Lteif', birthdate: '2008-10-15', photo: 'https://lh3.googleusercontent.com/d/13u4y6JIyCBVQ_9PCwYhh837byyK9g8pF'},
-    'Salah': {fullName: 'Salah Boumalouga', birthdate: '2008-07-15', photo: 'https://lh3.googleusercontent.com/d/1IG8S_i6jD8O6C2QD_nwLxrG932QgIVXu'},
-    // Données des filles
-    'Yomna Masrouhi': {fullName: 'Yomna Masrouhi', birthdate: '2009-09-07', photo: null},
-    'Isra Elalmi': {fullName: 'Isra Elalmi', birthdate: '2008-03-25', photo: null},
-    'Naya Sabbidine': {fullName: 'Naya Sabbidine', birthdate: '2014-02-28', photo: null},
-    'Israa Alkattan': {fullName: 'Israa Alkattan', birthdate: '2013-09-19', photo: null},
-    'Dina Tlili': {fullName: 'Dina Tlili', birthdate: '2012-12-22', photo: null},
-    'Lina Tlili': {fullName: 'Lina Tlili', birthdate: '2012-12-22', photo: null},
-    'Cynthia Fadlallah': {fullName: 'Cynthia Fadlallah', birthdate: '2013-12-06', photo: null},
-    'Neyla Molina': {fullName: 'Neyla Molina', birthdate: '2014-01-13', photo: null},
-    'Jawahair Eshmawi': {fullName: 'Jawahair Eshmawi', birthdate: '2012-03-19', photo: null},
-    'Yousr Letaief': {fullName: 'Yousr Letaief', birthdate: '2011-06-14', photo: null},
-    'Sarah Aldebasy': {fullName: 'Sarah Aldebasy', birthdate: '2011-07-24', photo: null},
-    'Maria Wahib': {fullName: 'Maria Wahib', birthdate: '2011-07-16', photo: null},
-    'Badia Khaldi': {fullName: 'Badia Khaldi', birthdate: '2010-12-23', photo: null},
-    'Luluwah Alghabashi': {fullName: 'Luluwah Alghabashi', birthdate: '2010-04-29', photo: null}
+    // Garçons
+    'Faysal':              {fullName:'Faysal Achar',            birthdate:'2014-04-15', photo:'https://lh3.googleusercontent.com/d/1IB6BKROX3TRxaIIHVVVWbB7-Ii-V8VrC'},
+    'Bilal':               {fullName:'Bilal Molina',             birthdate:'2015-02-15', photo:'https://lh3.googleusercontent.com/d/1B0QUZJhpSad5Fs3qRTugUe4oyTlUDEVu'},
+    'Jad':                 {fullName:'Jad Mahayni',              birthdate:'2014-08-15', photo:'https://lh3.googleusercontent.com/d/1VLvrWjeJwaClf4pSaLiwjnS79N-HrsFr'},
+    'Manaf':               {fullName:'Manaf Kotbi',              birthdate:'2014-08-15', photo:'https://lh3.googleusercontent.com/d/1h46Tqtqcp5tNqdY62wV6pyZFYknCEMWY'},
+    'Ahmed':               {fullName:'Ahmed Bouaziz',            birthdate:'2013-09-15', photo:'https://lh3.googleusercontent.com/d/1cDF-yegSB2tqsWac0AoNttbi8qAALYT1'},
+    'Yasser':              {fullName:'Yasser Younes',            birthdate:'2013-08-15', photo:'https://lh3.googleusercontent.com/d/1UUrrAJV_bgFNktGDinDkSrpwSZz-e47T'},
+    'Eyad':                {fullName:'Eyad Hassan',              birthdate:'2013-04-15', photo:'https://lh3.googleusercontent.com/d/1HGyWS4cC1jWWD25Ah3WcT_eIbUHqFzJ1'},
+    'Ali':                 {fullName:'Ali Kutbi',                birthdate:'2013-04-15', photo:'https://lh3.googleusercontent.com/d/1bN-fDf_IWkXoW3WjSOXI5_M4KkL3FDKr'},
+    'Seifeddine':          {fullName:'Seifeddine Ayadi',         birthdate:'2012-01-15', photo:'https://lh3.googleusercontent.com/d/1tWdPSbtCAsTMB86WzDgqh3Xw01ahm9s6'},
+    'Mohamed Chalak':      {fullName:'Mohamed Chalak',           birthdate:'2011-11-15', photo:'https://lh3.googleusercontent.com/d/1lB8ObGOvQDVT6FITL2y7C5TYmAGyggFn'},
+    'Wajih':               {fullName:'Wajih Sabadine',           birthdate:'2012-06-15', photo:'https://lh3.googleusercontent.com/d/1MH6M05mQamOHevmDffVFNpSFNnxqbxs3'},
+    'Ahmad':               {fullName:'Ahmad Mahayni',            birthdate:'2012-02-15', photo:'https://lh3.googleusercontent.com/d/1zU-jBuAbYjHanzank9C1BAd00skS1Y5J'},
+    'Adam':                {fullName:'Adam Kaaki',               birthdate:'2012-12-15', photo:'https://lh3.googleusercontent.com/d/15I9p6VSnn1yVmPxRRbGsUkM-fsBKYOWF'},
+    'Mohamed Younes':      {fullName:'Mohamed Younes',           birthdate:'2011-11-15', photo:'https://lh3.googleusercontent.com/d/1wzraoZY_lRafcDXeaxSBeX5cIU57p4xA'},
+    'Mohamed Amine Sgheir':{fullName:'Mohamed Amine Sgheir',     birthdate:'2012-12-15', photo:'https://lh3.googleusercontent.com/d/1UrBw6guz0oBTUy8COGeewIs3XAK773bR'},
+    'Samir':               {fullName:'Samir Kaaki',              birthdate:'2012-12-15', photo:'https://lh3.googleusercontent.com/d/1NdaCH8CU0DJFHXw4D0lItP-QnCswl23b'},
+    'Abdulrahman':         {fullName:'Abdulrahman Bouaziz',      birthdate:'2012-04-15', photo:'https://lh3.googleusercontent.com/d/1yCTO5StU2tnPY0BEynnWzUveljMIUcLE'},
+    'Youssef':             {fullName:'Youssef Baakak',           birthdate:'2011-11-15', photo:'https://lh3.googleusercontent.com/d/1Bygg5-PYrjjMOZdI5hAe16eZ8ltn772e'},
+    'Habib':               {fullName:'Habib Lteif',              birthdate:'2008-10-15', photo:'https://lh3.googleusercontent.com/d/13u4y6JIyCBVQ_9PCwYhh837byyK9g8pF'},
+    'Salah':               {fullName:'Salah Boumalouga',         birthdate:'2008-07-15', photo:'https://lh3.googleusercontent.com/d/1IG8S_i6jD8O6C2QD_nwLxrG932QgIVXu'},
+    // Filles
+    'Yomna Masrouhi':      {fullName:'Yomna Masrouhi',           birthdate:'2009-09-07', photo:null},
+    'Isra Elalmi':         {fullName:'Isra Elalmi',              birthdate:'2008-03-25', photo:null},
+    'Naya Sabbidine':      {fullName:'Naya Sabbidine',           birthdate:'2014-02-28', photo:null},
+    'Israa Alkattan':      {fullName:'Israa Alkattan',           birthdate:'2013-09-19', photo:null},
+    'Dina Tlili':          {fullName:'Dina Tlili',               birthdate:'2012-12-22', photo:null},
+    'Lina Tlili':          {fullName:'Lina Tlili',               birthdate:'2012-12-22', photo:null},
+    'Cynthia Fadlallah':   {fullName:'Cynthia Fadlallah',        birthdate:'2013-12-06', photo:null},
+    'Neyla Molina':        {fullName:'Neyla Molina',             birthdate:'2014-01-13', photo:null},
+    'Jawahair Eshmawi':    {fullName:'Jawahair Eshmawi',         birthdate:'2012-03-19', photo:null},
+    'Yousr Letaief':       {fullName:'Yousr Letaief',            birthdate:'2011-06-14', photo:null},
+    'Sarah Aldebasy':      {fullName:'Sarah Aldebasy',           birthdate:'2011-07-24', photo:null},
+    'Maria Wahib':         {fullName:'Maria Wahib',              birthdate:'2011-07-16', photo:null},
+    'Badia Khaldi':        {fullName:'Badia Khaldi',             birthdate:'2010-12-23', photo:null},
+    'Luluwah Alghabashi':  {fullName:'Luluwah Alghabashi',       birthdate:'2010-04-29', photo:null}
 };
 
-// Matières par classe - TOUTES LES CLASSES
 const subjectsByClass = {
-    PEI1: ["Mathématiques", "Individus et sociétés", "Langue et littérature", "Design", "Sciences", "Art visuel", "Éducation physique et sportive", "Acquisition de langue (Anglais)", "Acquisition de langue (اللغة العربية)"],
-    PEI2: ["Mathématiques", "Individus et sociétés", "Langue et littérature", "Design", "Sciences", "Art visuel", "Éducation physique et sportive", "Acquisition de langue (Anglais)", "Acquisition de langue (اللغة العربية)"],
-    PEI3: ["Mathématiques", "Individus et sociétés", "Langue et littérature", "Design", "Sciences", "Art visuel", "Éducation physique et sportive", "Acquisition de langue (Anglais)", "Acquisition de langue (اللغة العربية)"],
-    PEI4: ["Mathématiques", "Individus et sociétés", "Langue et littérature", "Design", "Sciences", "Art visuel", "Éducation physique et sportive", "Acquisition de langue (Anglais)", "Acquisition de langue (اللغة العربية)"],
-    PEI5: ["Mathématiques", "Individus et sociétés", "Langue et littérature", "Design", "Sciences", "Art visuel", "Éducation physique et sportive", "Acquisition de langue (Anglais)", "Acquisition de langue (اللغة العربية)"],
-    DP1: ["Mathématiques", "Individus et sociétés", "Langue et littérature", "Design", "Sciences", "Art visuel", "Éducation physique et sportive", "Acquisition de langue (Anglais)", "Acquisition de langue (اللغة العربية)"],
-    DP2: ["Mathématiques", "Individus et sociétés", "Langue et littérature", "Design", "Sciences", "Art visuel", "Éducation physique et sportive", "Acquisition de langue (Anglais)", "Acquisition de langue (اللغة العربية)"]
+    PEI1: ["Mathématiques","Individus et sociétés","Langue et littérature","Design","Sciences","Art visuel","Éducation physique et à la santé","Acquisition de langue (Anglais)","Acquisition de langue (اللغة العربية)"],
+    PEI2: ["Mathématiques","Individus et sociétés","Langue et littérature","Design","Sciences","Art visuel","Éducation physique et à la santé","Acquisition de langue (Anglais)","Acquisition de langue (اللغة العربية)"],
+    PEI3: ["Mathématiques","Individus et sociétés","Langue et littérature","Design","Sciences","Art visuel","Éducation physique et à la santé","Acquisition de langue (Anglais)","Acquisition de langue (اللغة العربية)"],
+    PEI4: ["Mathématiques","Individus et sociétés","Langue et littérature","Design","Sciences","Art visuel","Éducation physique et à la santé","Acquisition de langue (Anglais)","Acquisition de langue (اللغة العربية)"],
+    PEI5: ["Mathématiques","Individus et sociétés","Langue et littérature","Design","Sciences","Art visuel","Éducation physique et à la santé","Acquisition de langue (Anglais)","Acquisition de langue (اللغة العربية)"],
+    DP1:  ["Mathématiques","Individus et sociétés","Langue et littérature","Design","Sciences","Art visuel","Éducation physique et à la santé","Acquisition de langue (Anglais)","Acquisition de langue (اللغة العربية)"],
+    DP2:  ["Mathématiques","Individus et sociétés","Langue et littérature","Design","Sciences","Art visuel","Éducation physique et à la santé","Acquisition de langue (Anglais)","Acquisition de langue (اللغة العربية)"]
 };
 
-// Critères par matière - TOUTES LES MATIÈRES AVEC CRITÈRES SPÉCIFIQUES
+// ---- CORRECTED criteria names per subject (as requested) ----
 const criteriaBySubject = {
-    // Matières PEI (PEI1-PEI5) - CRITÈRES SPÉCIFIQUES
-    "Mathématiques": {A: "Connaissances et compréhension", B: "Recherche de modèles", C: "Communication", D: "Application des mathématiques"},
-    "Individus et sociétés": {A: "Connaissances et compréhension", B: "Recherche", C: "Communication", D: "Pensée critique"},
-    "Langue et littérature": {A: "Analyse", B: "Organisation", C: "Production de texte", D: "Utilisation de la langue"},
-    "Design": {A: "Recherche et analyse", B: "Développement des idées", C: "Création de la solution", D: "Évaluation"},
-    "Sciences": {A: "Connaissances et compréhension", B: "Recherche et élaboration", C: "Traitement et évaluation", D: "Réflexion sur les répercussions"},
-    "Art visuel": {A: "Connaissances et compréhension", B: "Développement des compétences", C: "Pensée créative", D: "Réaction"},
-    "Éducation physique et sportive": {A: "Connaissances et compréhension", B: "Planification", C: "Application et exécution", D: "Réflexion et amélioration"},
-    "Acquisition de langue (Anglais)": {A: "Listening", B: "Reading", C: "Speaking", D: "Writing"},
-    "Acquisition de langue (اللغة العربية)": {A: "الاستماع", B: "القراءة", C: "التحدث", D: "الكتابة"}
+    "Éducation physique et à la santé": {
+        A: "Connaissances et compréhension",
+        B: "Planification de la performance",
+        C: "Application et exécution",
+        D: "Réflexion et amélioration de la performance"
+    },
+    // Keep old name as alias
+    "Éducation physique et sportive": {
+        A: "Connaissances et compréhension",
+        B: "Planification de la performance",
+        C: "Application et exécution",
+        D: "Réflexion et amélioration de la performance"
+    },
+    "Design": {
+        A: "Recherche et analyse",
+        B: "Développement des idées",
+        C: "Création de la solution",
+        D: "Évaluation"
+    },
+    "Art visuel": {
+        A: "Recherche",
+        B: "Développement",
+        C: "Création ou exécution",
+        D: "Évaluation"
+    },
+    "Arts": {
+        A: "Recherche",
+        B: "Développement",
+        C: "Création ou exécution",
+        D: "Évaluation"
+    },
+    "Acquisition de langue (Anglais)": {
+        A: "Listening Comprehension",
+        B: "Reading Comprehension",
+        C: "Speaking",
+        D: "Writing"
+    },
+    "Acquisition de langues (Anglais)": {
+        A: "Listening Comprehension",
+        B: "Reading Comprehension",
+        C: "Speaking",
+        D: "Writing"
+    },
+    "Individus et sociétés": {
+        A: "Connaissances et compréhension",
+        B: "Recherche",
+        C: "Communication",
+        D: "Pensée critique"
+    },
+    "Langue et littérature": {
+        A: "Analyse",
+        B: "Organisation",
+        C: "Production de texte",
+        D: "Utilisation de la langue"
+    },
+    "Sciences": {
+        A: "Connaissances et compréhension",
+        B: "Recherche et élaboration",
+        C: "Traitement et évaluation",
+        D: "Réflexion sur les répercussions de la science"
+    },
+    "Mathématiques": {
+        A: "Connaissances et compréhension",
+        B: "Recherche de modèles",
+        C: "Communication",
+        D: "Application des mathématiques dans des contextes de la vie réelle"
+    },
+    // Arabic — fixed criteria
+    "Acquisition de langue (اللغة العربية)": {
+        A: "الاستماع",
+        B: "القراءة",
+        C: "التحدث",
+        D: "الكتابة"
+    }
 };
 
-// Élèves par classe et section - CONFIGURATION CORRECTE
 const studentsByClassAndSection = {
     garçons: {
-        PEI1: ["Bilal", "Faysal", "Jad", "Manaf"],
-        PEI2: ["Ahmed", "Ali", "Eyad", "Yasser"],
-        PEI3: ["Adam", "Ahmad", "Mohamed Chalak", "Seifeddine", "Wajih"],
-        PEI4: ["Abdulrahman", "Mohamed Amine Sgheir", "Mohamed Younes", "Samir", "Youssef"],
-        DP2: ["Habib", "Salah"]
+        PEI1: ["Bilal","Faysal","Jad","Manaf"],
+        PEI2: ["Ahmed","Ali","Eyad","Yasser"],
+        PEI3: ["Adam","Ahmad","Mohamed Chalak","Seifeddine","Wajih"],
+        PEI4: ["Abdulrahman","Mohamed Amine Sgheir","Mohamed Younes","Samir","Youssef"],
+        DP2:  ["Habib","Salah"]
     },
     filles: {
         PEI1: ["Naya Sabbidine"],
-        PEI2: ["Israa Alkattan", "Dina Tlili", "Lina Tlili", "Cynthia Fadlallah", "Neyla Molina"],
+        PEI2: ["Israa Alkattan","Dina Tlili","Lina Tlili","Cynthia Fadlallah","Neyla Molina"],
         PEI3: ["Jawahair Eshmawi"],
-        PEI4: ["Yousr Letaief", "Sarah Aldebasy", "Maria Wahib"],
-        PEI5: ["Badia Khaldi", "Luluwah Alghabashi"],
-        DP1: ["Yomna Masrouhi"],
-        DP2: ["Isra Elalmi"]
+        PEI4: ["Yousr Letaief","Sarah Aldebasy","Maria Wahib"],
+        PEI5: ["Badia Khaldi","Luluwah Alghabashi"],
+        DP1:  ["Yomna Masrouhi"],
+        DP2:  ["Isra Elalmi"]
     }
 };
 
-// Fonctions utilitaires
+const availableClassesBySection = {
+    'garçons': ['PEI1','PEI2','PEI3','PEI4','DP2'],
+    'filles':  ['PEI1','PEI2','PEI3','PEI4','PEI5','DP1','DP2']
+};
+
+const subjectIcons = {
+    "Mathématiques":                       "📐",
+    "Individus et sociétés":               "🌍",
+    "Langue et littérature":               "📚",
+    "Design":                              "🎨",
+    "Sciences":                            "🔬",
+    "Art visuel":                          "🖼️",
+    "Éducation physique et à la santé":    "⚽",
+    "Éducation physique et sportive":      "⚽",
+    "Acquisition de langue (Anglais)":     "🇬🇧",
+    "Acquisition de langue (اللغة العربية)":"🇸🇦"
+};
+
+// Class metadata for icon display
+const classInfo = {
+    PEI1: { icon: '🏫', label: 'PEI 1', sub: 'Année 1', type: 'pei' },
+    PEI2: { icon: '🏫', label: 'PEI 2', sub: 'Année 2', type: 'pei' },
+    PEI3: { icon: '🏫', label: 'PEI 3', sub: 'Année 3', type: 'pei' },
+    PEI4: { icon: '🏫', label: 'PEI 4', sub: 'Année 4', type: 'pei' },
+    PEI5: { icon: '🏫', label: 'PEI 5', sub: 'Année 5', type: 'pei' },
+    DP1:  { icon: '🎓', label: 'DP 1',  sub: 'Diplôme 1', type: 'dp' },
+    DP2:  { icon: '🎓', label: 'DP 2',  sub: 'Diplôme 2', type: 'dp' }
+};
+
+// =====================================================
+// TOAST NOTIFICATIONS
+// =====================================================
+function showToast(message, type = 'info', duration = 3500) {
+    const container = document.getElementById('toastContainer');
+    if (!container) return;
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    const icons = { success:'✅', error:'❌', warning:'⚠️', info:'ℹ️' };
+    toast.innerHTML = `<span>${icons[type]||'ℹ️'}</span><span>${message}</span>`;
+    container.appendChild(toast);
+    setTimeout(() => {
+        toast.classList.add('removing');
+        setTimeout(() => toast.remove(), 250);
+    }, duration);
+}
+
+// =====================================================
+// API UTILITIES
+// =====================================================
 async function apiCall(endpoint, data) {
-    try {
-        const response = await fetch(`/api/${endpoint}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(data)
-        });
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        return await response.json();
-    } catch (error) {
-        console.error(`API call failed for ${endpoint}:`, error);
-        throw error;
-    }
+    const response = await fetch(`/api/${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return response.json();
 }
 
-// Fonction spéciale pour télécharger les fichiers Word
 async function downloadWordDocument(data) {
-    try {
-        const response = await fetch('/api/generateSingleWord', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(data)
-        });
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        // Récupérer le nom du fichier depuis les headers
-        const contentDisposition = response.headers.get('Content-Disposition');
-        let filename = `Livret-${data.studentSelected}-${Date.now()}.docx`;
-        if (contentDisposition) {
-            const filenameMatch = contentDisposition.match(/filename="([^"]+)"/);
-            if (filenameMatch) {
-                filename = filenameMatch[1];
-            }
-        }
-        
-        // Récupérer le contenu binaire
-        const blob = await response.blob();
-        
-        // Créer le lien de téléchargement
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-        
-        return { success: true, filename: filename };
-        
-    } catch (error) {
-        console.error(`Word download failed:`, error);
-        throw error;
+    const response = await fetch('/api/generateSingleWord', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const cd = response.headers.get('Content-Disposition');
+    let filename = `Livret-${data.studentSelected}-${Date.now()}.docx`;
+    if (cd) { const m = cd.match(/filename="([^"]+)"/); if (m) filename = m[1]; }
+    const blob  = await response.blob();
+    const url   = window.URL.createObjectURL(blob);
+    const a     = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    return { success: true, filename };
+}
+
+// =====================================================
+// SEMESTER UI
+// =====================================================
+function handleSemesterChange(semester) {
+    currentSemester = semester;
+    updateSemesterUI();
+    document.getElementById('step0b').style.display = 'block';
+    _isPopulatingSubjects = false;
+    if (currentData.studentSelected && currentData.classSelected) {
+        populateSubjects();
     }
 }
 
-// Handlers de mise à jour des données
+function updateSemesterUI() {
+    const s1 = document.getElementById('sem1Btn');
+    const s2 = document.getElementById('sem2Btn');
+    if (s1 && s2) {
+        if (currentSemester === 1) {
+            s1.style.opacity = '1'; s1.style.boxShadow = '0 0 0 4px rgba(37,99,235,.4)';
+            s2.style.opacity = '.5'; s2.style.boxShadow = 'none';
+        } else {
+            s2.style.opacity = '1'; s2.style.boxShadow = '0 0 0 4px rgba(22,163,74,.4)';
+            s1.style.opacity = '.5'; s1.style.boxShadow = 'none';
+        }
+    }
+    const badge = document.getElementById('semesterBadge');
+    if (badge) {
+        badge.textContent = `Semestre ${currentSemester}`;
+        badge.style.backgroundColor = currentSemester === 1 ? '#2563eb' : '#16a34a';
+        badge.style.display = 'inline-block';
+    }
+}
+
+// =====================================================
+// NAVIGATION — SECTION
+// =====================================================
+function handleSectionChange(value) {
+    currentData.sectionSelected = value;
+    document.getElementById('step0').style.display = 'none';
+    document.getElementById('step0b').style.display = 'none';
+    document.getElementById('step1').style.display = 'block';
+    populateClassGrid(value);
+    resetOnSectionChange();
+}
+
+function populateClassGrid(section) {
+    const grid = document.getElementById('classGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    const classes = availableClassesBySection[section] || [];
+    classes.forEach(cls => {
+        const info = classInfo[cls] || { icon:'🏫', label:cls, sub:'', type:'pei' };
+        const card = document.createElement('div');
+        card.className = `class-card ${info.type}`;
+        card.dataset.class = cls;
+        card.innerHTML = `
+            <div class="class-icon">${info.icon}</div>
+            <div class="class-label">${info.label}</div>
+            <div class="class-sub">${info.sub}</div>
+        `;
+        card.onclick = () => handleClassChange(cls);
+        grid.appendChild(card);
+    });
+}
+
+// =====================================================
+// NAVIGATION — CLASS
+// =====================================================
+function handleClassChange(value) {
+    currentData.classSelected = value;
+    // Highlight selected card
+    document.querySelectorAll('.class-card').forEach(c => {
+        c.classList.toggle('selected', c.dataset.class === value);
+    });
+    resetOnClassChange();
+    if (value) {
+        populateStudentGrid();
+        document.getElementById('step3').style.display = 'block';
+    }
+}
+
+function populateStudentGrid() {
+    const grid = document.getElementById('studentGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    const { classSelected, sectionSelected } = currentData;
+    const list = (studentsByClassAndSection[sectionSelected]?.[classSelected] || []).slice().sort((a,b) => a.localeCompare(b));
+    list.forEach(name => {
+        const info   = studentData[name] || {};
+        const full   = info.fullName || name;
+        const photo  = info.photo;
+        const initials = full.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+        const card = document.createElement('div');
+        card.className = 'student-card';
+        card.dataset.student = name;
+        const photoHtml = photo
+            ? `<img class="student-photo" src="${photo}" alt="${full}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="student-avatar" style="display:none;">${initials}</div>`
+            : `<div class="student-avatar">${initials}</div>`;
+        card.innerHTML = `${photoHtml}<div class="student-name">${full}</div>`;
+        card.onclick = () => handleStudentChange(name);
+        grid.appendChild(card);
+    });
+}
+
+// =====================================================
+// NAVIGATION — STUDENT
+// =====================================================
+function handleStudentChange(name) {
+    currentData.studentSelected = name;
+    // Highlight selected student card
+    document.querySelectorAll('.student-card').forEach(c => {
+        c.classList.toggle('selected', c.dataset.student === name);
+    });
+    resetOnStudentChange();
+    if (name) {
+        showStudentInfo();
+        populateSubjects();
+    }
+}
+
+async function showStudentInfo() {
+    const name = currentData.studentSelected;
+    if (!name) { studentInfoContainer.style.display = 'none'; return; }
+    studentInfoContainer.style.display = 'block';
+
+    const info   = studentData[name] || {};
+    const full   = info.fullName || name;
+    const photo  = info.photo;
+    const initials = full.split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+
+    document.getElementById('studentNameDisplay').textContent = full;
+    document.getElementById('studentClassBadge').textContent =
+        `${currentData.classSelected} · ${currentData.sectionSelected} · Semestre ${currentSemester}`;
+
+    const photoEl   = document.getElementById('studentPhotoPreview');
+    const avatarEl  = document.getElementById('studentAvatarPlaceholder');
+    if (photo) {
+        photoEl.src  = photo;
+        photoEl.style.display = 'block';
+        avatarEl.style.display = 'none';
+        photoEl.onerror = () => { photoEl.style.display='none'; avatarEl.style.display='flex'; avatarEl.textContent=initials; };
+    } else {
+        photoEl.style.display = 'none';
+        avatarEl.style.display = 'flex';
+        avatarEl.textContent = initials;
+    }
+
+    currentData.studentPhoto    = photo || null;
+    currentData.studentBirthdate = info.birthdate || '';
+    if (studentBirthdateInput) studentBirthdateInput.value = info.birthdate || '';
+
+    try {
+        const srv = await apiCall('fetchStudentInfo', { studentSelected: name });
+        if (srv?.studentBirthdate) {
+            currentData.studentBirthdate = srv.studentBirthdate;
+            if (studentBirthdateInput) studentBirthdateInput.value = srv.studentBirthdate;
+        }
+    } catch(e) {}
+}
+
+// =====================================================
+// SUBJECT GRID
+// =====================================================
+let completedSubjects = {};
+let _isPopulatingSubjects = false;
+
+async function populateSubjects() {
+    if (_isPopulatingSubjects) return;
+    _isPopulatingSubjects = true;
+    try {
+        const { classSelected, studentSelected } = currentData;
+        if (!classSelected || !studentSelected || !subjectsGrid) return;
+        subjectsGrid.innerHTML = '';
+
+        let existingMap = {};
+        try {
+            const resp = await apiCall('fetchStudentContributions', {
+                studentSelected, classSelected,
+                sectionSelected: currentData.sectionSelected,
+                semester: currentSemester
+            });
+            completedSubjects[studentSelected] = {};
+            if (resp?.contributions) {
+                const seen = new Set();
+                resp.contributions.forEach(c => {
+                    if (c.subjectSelected && !seen.has(c.subjectSelected)) {
+                        seen.add(c.subjectSelected);
+                        completedSubjects[studentSelected][c.subjectSelected] = true;
+                    }
+                });
+            }
+        } catch(e) {}
+
+        const subjects = [...new Set(subjectsByClass[classSelected] || [])];
+        subjects.forEach(subject => {
+            const card = document.createElement('div');
+            card.className = 'subject-card';
+            card.dataset.subject = subject;
+            if (completedSubjects[studentSelected]?.[subject]) card.classList.add('completed');
+            if (currentData.subjectSelected === subject) card.classList.add('selected');
+            const icon = subjectIcons[subject] || '📖';
+            card.innerHTML = `<div class="subject-icon">${icon}</div><h3>${subject}</h3>`;
+            card.onclick = () => handleSubjectCardClick(subject);
+            subjectsGrid.appendChild(card);
+        });
+
+        document.getElementById('step2').style.display = 'block';
+    } finally {
+        _isPopulatingSubjects = false;
+    }
+}
+
+function handleSubjectCardClick(subject) {
+    document.querySelectorAll('.subject-card').forEach(c => c.classList.remove('selected'));
+    document.querySelector(`.subject-card[data-subject="${CSS.escape(subject)}"]`)?.classList.add('selected');
+    handleSubjectChange(subject);
+}
+
+// =====================================================
+// SUBJECT CHANGE — loads form + data
+// =====================================================
+async function handleSubjectChange(value) {
+    currentData.subjectSelected = value;
+    resetOnSubjectChange();
+    if (!value) return;
+
+    const isArabic = value === 'Acquisition de langue (اللغة العربية)';
+    document.querySelectorAll('.french-section').forEach(s => s.style.display = isArabic ? 'none' : 'block');
+    document.querySelectorAll('.arabic-section').forEach(s => s.style.display = isArabic ? 'block' : 'none');
+
+    // Update subject name badge
+    const badge = document.getElementById('subjectNameBadge');
+    if (badge) badge.textContent = value;
+
+    contributionEntrySections.style.display = 'block';
+    dataContainer.style.display = 'none';
+
+    if (!isArabic) {
+        updateCriteriaTableDynamically();
+        updateCriteriaTableHeaders();
+    } else {
+        updateCriteriaTableDynamicallyArabic();
+    }
+
+    await fetchData();
+}
+
+// =====================================================
+// CRITERIA TABLE UPDATES
+// =====================================================
+function updateCriteriaTableDynamically() {
+    const isDP = currentData.classSelected === 'DP1' || currentData.classSelected === 'DP2';
+    const maxV = isDP ? 7 : 8;
+    const maxT = isDP ? 28 : 32;
+    const heads = document.querySelectorAll('#criteriaTable thead th');
+    if (heads.length >= 5) {
+        heads[1].textContent = `Semestre 1 (/${maxV})`;
+        heads[2].textContent = `Semestre 2 (/${maxV})`;
+        heads[3].textContent = `Niveau Final (/${maxV})`;
+        heads[4].textContent = `Seuil (/${maxT})`;
+        if (heads[5]) heads[5].textContent = `Note (/${maxV})`;
+    }
+    document.querySelectorAll('#criteriaTable tbody input[type="number"]').forEach(i => { if (!i.readOnly) i.max = maxV; });
+}
+
+function updateCriteriaTableDynamicallyArabic() {
+    const isDP = currentData.classSelected === 'DP1' || currentData.classSelected === 'DP2';
+    const maxV = isDP ? 7 : 8;
+    const maxT = isDP ? 28 : 32;
+    const heads = document.querySelectorAll('#criteriaTableArabic thead th');
+    if (heads.length >= 5) {
+        heads[1].textContent = `الفصل الأول (/${maxV})`;
+        heads[2].textContent = `الفصل الثاني (/${maxV})`;
+        heads[3].textContent = `المستوى النهائي (/${maxV})`;
+        heads[4].textContent = `المجموع (/${maxT})`;
+        if (heads[5]) heads[5].textContent = `الدرجة (/${maxV})`;
+    }
+    document.querySelectorAll('#criteriaTableArabic tbody input[type="number"]').forEach(i => { if (!i.readOnly) i.max = maxV; });
+}
+
+function updateCriteriaTableHeaders() {
+    const labels = criteriaBySubject[currentData.subjectSelected] || {};
+    const keys = ['A','B','C','D'];
+    document.querySelectorAll('#criteriaTable tbody tr').forEach((row, i) => {
+        const key  = keys[i];
+        const cell = row.cells[0];
+        if (cell) cell.textContent = `${key} — ${labels[key] || 'Critère '+key}`;
+    });
+}
+
+// =====================================================
+// CRITERIA TABLE REBUILD (for units)
+// =====================================================
+function handleUnitsChange() {
+    const isArabic = currentData.subjectSelected === 'Acquisition de langue (اللغة العربية)';
+    if (isArabic) {
+        currentData.unitsSem1 = parseInt(document.getElementById('unitsSem1SelectorArabic').value) || 1;
+        currentData.unitsSem2 = parseInt(document.getElementById('unitsSem2SelectorArabic').value) || 1;
+        rebuildCriteriaTableArabic();
+    } else {
+        currentData.unitsSem1 = parseInt(document.getElementById('unitsSem1Selector').value) || 1;
+        currentData.unitsSem2 = parseInt(document.getElementById('unitsSem2Selector').value) || 1;
+        rebuildCriteriaTable();
+    }
+}
+
+function rebuildCriteriaTable() {
+    const isDP   = currentData.classSelected === 'DP1' || currentData.classSelected === 'DP2';
+    const maxV   = isDP ? 7 : 8;
+    const uS1    = currentData.unitsSem1 || 1;
+    const uS2    = currentData.unitsSem2 || 1;
+    const labels = criteriaBySubject[currentData.subjectSelected] || {};
+    const keys   = ['A','B','C','D'];
+
+    // Header
+    let hdr = '<tr><th>Critères</th>';
+    if (uS1 === 1) { hdr += `<th>Semestre 1 (/${maxV})</th>`; }
+    else { for(let i=1;i<=uS1;i++) hdr+=`<th>S1-U${i} (/${maxV})</th>`; hdr+=`<th style="background:#e7f3ff;">Moy. S1 (/${maxV})</th>`; }
+    if (uS2 === 1) { hdr += `<th>Semestre 2 (/${maxV})</th>`; }
+    else { for(let i=1;i<=uS2;i++) hdr+=`<th>S2-U${i} (/${maxV})</th>`; hdr+=`<th style="background:#e7f3ff;">Moy. S2 (/${maxV})</th>`; }
+    hdr += `<th>Niveau Final (/${maxV})</th><th>Seuil (/${isDP?28:32})</th><th>Note (/${maxV})</th></tr>`;
+    document.getElementById('criteriaTableHead').innerHTML = hdr;
+
+    // Body
+    let body = '';
+    keys.forEach((key, idx) => {
+        const cv  = currentData.criteriaValues[key] || {};
+        const lbl = `${key} — ${labels[key] || 'Critère '+key}`;
+        body += `<tr data-criteria="${key}"><td>${lbl}</td>`;
+        if (uS1 === 1) {
+            body += `<td class="sem1-cell"><input type="number" min="0" max="${maxV}" value="${cv.sem1??''}" oninput="validateInput(this)" data-unit="0"></td>`;
+        } else {
+            for(let i=0;i<uS1;i++) body += `<td class="sem1-unit-cell"><input type="number" min="0" max="${maxV}" value="${cv.sem1Units?.[i]??''}" oninput="validateInput(this)" data-unit="${i}"></td>`;
+            body += `<td style="background:#e7f3ff;"><input type="number" readonly tabindex="-1" value="${cv.sem1??''}" class="sem1-avg-input"></td>`;
+        }
+        if (uS2 === 1) {
+            body += `<td class="sem2-cell"><input type="number" min="0" max="${maxV}" value="${cv.sem2??''}" oninput="validateInput(this)" data-unit="0"></td>`;
+        } else {
+            for(let i=0;i<uS2;i++) body += `<td class="sem2-unit-cell"><input type="number" min="0" max="${maxV}" value="${cv.sem2Units?.[i]??''}" oninput="validateInput(this)" data-unit="${i}"></td>`;
+            body += `<td style="background:#e7f3ff;"><input type="number" readonly tabindex="-1" value="${cv.sem2??''}" class="sem2-avg-input"></td>`;
+        }
+        body += `<td><input type="number" readonly tabindex="-1" value="${cv.finalLevel??''}" class="final-level-input"></td>`;
+        if (idx === 0) {
+            body += `<td rowspan="4"><input id="threshold" type="number" readonly tabindex="-1" style="background:#e9ecef;"></td>`;
+            body += `<td rowspan="4"><input id="finalNote" type="number" readonly tabindex="-1" style="background:#e9ecef;"></td>`;
+        }
+        body += '</tr>';
+    });
+    document.getElementById('criteriaTableBody').innerHTML = body;
+    calculateTotals();
+    if (currentSemester === 2) applySemester2Mode();
+}
+
+function rebuildCriteriaTableArabic() {
+    const isDP   = currentData.classSelected === 'DP1' || currentData.classSelected === 'DP2';
+    const maxV   = isDP ? 7 : 8;
+    const uS1    = currentData.unitsSem1 || 1;
+    const uS2    = currentData.unitsSem2 || 1;
+    const keys   = ['A','B','C','D'];
+    const arNames = { A:'الاستماع', B:'القراءة', C:'التحدث', D:'الكتابة' };
+
+    let hdr = '<tr><th>المعايير</th>';
+    if (uS1 === 1) { hdr += `<th>الفصل الأول (/${maxV})</th>`; }
+    else { for(let i=1;i<=uS1;i++) hdr+=`<th>ف1-و${i} (/${maxV})</th>`; hdr+=`<th style="background:#e7f3ff;">متوسط ف1 (/${maxV})</th>`; }
+    if (uS2 === 1) { hdr += `<th>الفصل الثاني (/${maxV})</th>`; }
+    else { for(let i=1;i<=uS2;i++) hdr+=`<th>ف2-و${i} (/${maxV})</th>`; hdr+=`<th style="background:#e7f3ff;">متوسط ف2 (/${maxV})</th>`; }
+    hdr += `<th>المستوى النهائي (/${maxV})</th><th>المجموع (/${isDP?28:32})</th><th>الدرجة (/${maxV})</th></tr>`;
+    document.getElementById('criteriaTableHeadArabic').innerHTML = hdr;
+
+    let body = '';
+    keys.forEach((key, idx) => {
+        const cv  = currentData.criteriaValues[key] || {};
+        const lbl = `${key}: ${arNames[key]||key}`;
+        body += `<tr data-criteria="${key}"><td>${lbl}</td>`;
+        if (uS1 === 1) {
+            body += `<td class="sem1-cell"><input type="number" min="0" max="${maxV}" value="${cv.sem1??''}" oninput="validateInput(this)" data-unit="0"></td>`;
+        } else {
+            for(let i=0;i<uS1;i++) body+=`<td class="sem1-unit-cell"><input type="number" min="0" max="${maxV}" value="${cv.sem1Units?.[i]??''}" oninput="validateInput(this)" data-unit="${i}"></td>`;
+            body+=`<td style="background:#e7f3ff;"><input type="number" readonly tabindex="-1" value="${cv.sem1??''}" class="sem1-avg-input"></td>`;
+        }
+        if (uS2 === 1) {
+            body += `<td class="sem2-cell"><input type="number" min="0" max="${maxV}" value="${cv.sem2??''}" oninput="validateInput(this)" data-unit="0"></td>`;
+        } else {
+            for(let i=0;i<uS2;i++) body+=`<td class="sem2-unit-cell"><input type="number" min="0" max="${maxV}" value="${cv.sem2Units?.[i]??''}" oninput="validateInput(this)" data-unit="${i}"></td>`;
+            body+=`<td style="background:#e7f3ff;"><input type="number" readonly tabindex="-1" value="${cv.sem2??''}" class="sem2-avg-input"></td>`;
+        }
+        body += `<td><input type="number" readonly tabindex="-1" value="${cv.finalLevel??''}" class="final-level-input"></td>`;
+        if (idx === 0) {
+            body += `<td rowspan="4"><input id="thresholdArabic" type="number" readonly tabindex="-1" style="background:#e9ecef;"></td>`;
+            body += `<td rowspan="4"><input id="finalNoteArabic" type="number" readonly tabindex="-1" style="background:#e9ecef;"></td>`;
+        }
+        body += '</tr>';
+    });
+    document.getElementById('criteriaTableBodyArabic').innerHTML = body;
+    calculateTotals();
+    if (currentSemester === 2) applySemester2Mode();
+}
+
+// =====================================================
+// INPUT HANDLING
+// =====================================================
+function validateInput(input) {
+    const isDP = currentData.classSelected === 'DP1' || currentData.classSelected === 'DP2';
+    const max  = isDP ? 7 : 8;
+    input.value = input.value.replace(/[^0-9]/g, '');
+    if (input.value !== '' && parseFloat(input.value) > max) {
+        showToast(`Le maximum est ${max}`, 'warning', 2000);
+        input.value = max;
+    }
+    handleCriteriaChange(input);
+}
+
+function handleCriteriaChange(inputElement) {
+    const row = inputElement.closest('tr');
+    if (!row) return;
+    const key = row.getAttribute('data-criteria');
+    if (!key) return;
+    const isDP = currentData.classSelected === 'DP1' || currentData.classSelected === 'DP2';
+    const max  = isDP ? 7 : 8;
+
+    if (!currentData.criteriaValues[key]) {
+        currentData.criteriaValues[key] = { sem1:null, sem2:null, finalLevel:null, sem1Units:[], sem2Units:[] };
+    }
+
+    // S1
+    const s1Inputs = row.querySelectorAll('.sem1-unit-cell input, .sem1-cell input');
+    let s1Units=[], s1Sum=0, s1Count=0;
+    s1Inputs.forEach(inp => {
+        const u = parseInt(inp.dataset.unit||'0');
+        const v = inp.value !== '' ? parseFloat(inp.value) : null;
+        s1Units[u] = v;
+        if (v !== null && !isNaN(v)) { s1Sum+=v; s1Count++; }
+    });
+    let s1Avg = currentData.unitsSem1===1 ? s1Units[0]??null : (s1Count>0 ? Math.round(s1Sum/s1Count) : null);
+    const s1AvgEl = row.querySelector('.sem1-avg-input');
+    if (s1AvgEl) s1AvgEl.value = s1Avg!==null ? s1Avg : '';
+
+    // S2
+    const s2Inputs = row.querySelectorAll('.sem2-unit-cell input, .sem2-cell input');
+    let s2Units=[], s2Sum=0, s2Count=0;
+    s2Inputs.forEach(inp => {
+        const u = parseInt(inp.dataset.unit||'0');
+        const v = inp.value !== '' ? parseFloat(inp.value) : null;
+        s2Units[u] = v;
+        if (v !== null && !isNaN(v)) { s2Sum+=v; s2Count++; }
+    });
+    let s2Avg = currentData.unitsSem2===1 ? s2Units[0]??null : (s2Count>0 ? Math.round(s2Sum/s2Count) : null);
+    const s2AvgEl = row.querySelector('.sem2-avg-input');
+    if (s2AvgEl) s2AvgEl.value = s2Avg!==null ? s2Avg : '';
+
+    // Final
+    let final = null;
+    if (s1Avg!==null && s2Avg!==null) final = Math.round((s1Avg+s2Avg)/2);
+    else if (s1Avg!==null) final = s1Avg;
+    else if (s2Avg!==null) final = s2Avg;
+    const finEl = row.querySelector('.final-level-input');
+    if (finEl) finEl.value = final!==null ? final : '';
+
+    currentData.criteriaValues[key] = { sem1:s1Avg, sem2:s2Avg, finalLevel:final, sem1Units:s1Units, sem2Units:s2Units };
+    calculateTotals();
+}
+
+function calculateTotals() {
+    const isArabic = currentData.subjectSelected === 'Acquisition de langue (اللغة العربية)';
+    const tbody = document.getElementById(isArabic ? 'criteriaTableBodyArabic' : 'criteriaTableBody');
+    if (!tbody) return;
+    const isDP   = currentData.classSelected === 'DP1' || currentData.classSelected === 'DP2';
+    const maxN   = isDP ? 7 : 8;
+    const maxT   = isDP ? 28 : 32;
+    let total = 0;
+    tbody.querySelectorAll('.final-level-input').forEach(inp => {
+        if (inp.value !== '') total += parseFloat(inp.value);
+    });
+    const tEl = document.getElementById(isArabic ? 'thresholdArabic' : 'threshold');
+    if (tEl) tEl.value = total;
+    let note = total > 0 ? Math.max(1, Math.min(maxN, Math.round(total/4))) : 0;
+    const nEl = document.getElementById(isArabic ? 'finalNoteArabic' : 'finalNote');
+    if (nEl) nEl.value = note;
+}
+
+function handleCommunicationChange() {
+    const isArabic = currentData.subjectSelected === 'Acquisition de langue (اللغة العربية)';
+    const sel = isArabic ? '#communicationTableArabic tbody select' : '#communicationTable tbody select';
+    currentData.communicationEvaluation = Array.from(document.querySelectorAll(sel)).map(s=>s.value);
+}
+
 function handleTeacherNameChange(value) {
     currentData.teacherName = value.trim();
     localStorage.setItem('teacherName', currentData.teacherName);
-    
-    // Synchroniser avec le champ approprié
-    const isArabicSubject = currentData.subjectSelected === 'Acquisition de langue (اللغة العربية)';
-    const otherField = isArabicSubject ? document.getElementById('teacherName') : document.getElementById('teacherNameArabic');
-    if (otherField) otherField.value = value.trim();
+    const isArabic = currentData.subjectSelected === 'Acquisition de langue (اللغة العربية)';
+    const other = document.getElementById(isArabic ? 'teacherName' : 'teacherNameArabic');
+    if (other) other.value = value.trim();
+}
+
+function handleCommentChange(value) {
+    currentData.teacherComment = value;
+    const isArabic = currentData.subjectSelected === 'Acquisition de langue (اللغة العربية)';
+    const other = document.getElementById(isArabic ? 'teacherComment' : 'teacherCommentArabic');
+    if (other) other.value = value;
 }
 
 function handleStudentBirthdateChange(value) {
     currentData.studentBirthdate = value;
 }
 
-function handleCommentChange(value) {
-    currentData.teacherComment = value;
-    
-    // Synchroniser avec le champ approprié (arabe <-> français)
-    const isArabicSubject = currentData.subjectSelected === 'Acquisition de langue (اللغة العربية)';
-    const otherField = isArabicSubject ? document.getElementById('teacherComment') : document.getElementById('teacherCommentArabic');
-    if (otherField) otherField.value = value;
-}
-
-// Synchroniser les champs commentaire/nom depuis le DOM vers currentData (appelé avant toute sauvegarde)
 function syncFormDataFromDOM() {
-    const isArabicSubject = currentData.subjectSelected === 'Acquisition de langue (اللغة العربية)';
-    // Commentaire
-    const commentEl = isArabicSubject ? document.getElementById('teacherCommentArabic') : document.getElementById('teacherComment');
+    const isArabic = currentData.subjectSelected === 'Acquisition de langue (اللغة العربية)';
+    const commentEl = document.getElementById(isArabic ? 'teacherCommentArabic' : 'teacherComment');
     if (commentEl) currentData.teacherComment = commentEl.value;
-    // Nom enseignant
-    const nameEl = isArabicSubject ? document.getElementById('teacherNameArabic') : document.getElementById('teacherName');
+    const nameEl = document.getElementById(isArabic ? 'teacherNameArabic' : 'teacherName');
     if (nameEl && nameEl.value.trim()) {
         currentData.teacherName = nameEl.value.trim();
         localStorage.setItem('teacherName', currentData.teacherName);
     }
-    // Date de naissance
-    if (studentBirthdateInput && studentBirthdateInput.value) {
-        currentData.studentBirthdate = studentBirthdateInput.value;
-    }
+    if (studentBirthdateInput?.value) currentData.studentBirthdate = studentBirthdateInput.value;
 }
 
-function handleCommunicationChange() {
-    const isArabicSubject = currentData.subjectSelected === 'Acquisition de langue (اللغة العربية)';
-    const selector = isArabicSubject ? "#communicationTableArabic tbody select" : "#communicationTable tbody select";
-    
-    currentData.communicationEvaluation = Array.from(
-        document.querySelectorAll(selector)
-    ).map(sel => sel.value);
-}
-
-function handleUnitsChange() {
-    const isArabicSubject = currentData.subjectSelected === 'Acquisition de langue (اللغة العربية)';
-    
-    let unitsSem1, unitsSem2;
-    
-    if (isArabicSubject) {
-        unitsSem1 = parseInt(document.getElementById('unitsSem1SelectorArabic').value);
-        unitsSem2 = parseInt(document.getElementById('unitsSem2SelectorArabic').value);
-    } else {
-        unitsSem1 = parseInt(document.getElementById('unitsSem1Selector').value);
-        unitsSem2 = parseInt(document.getElementById('unitsSem2Selector').value);
-    }
-    
-    currentData.unitsSem1 = unitsSem1;
-    currentData.unitsSem2 = unitsSem2;
-    
-    if (isArabicSubject) {
-        rebuildCriteriaTableArabic();
-    } else {
-        rebuildCriteriaTable();
-    }
-}
-
-function rebuildCriteriaTable() {
-    const isDPClass = currentData.classSelected === 'DP1' || currentData.classSelected === 'DP2';
-    const maxValue = isDPClass ? 7 : 8;
-    // CORRECTION: Utiliser A-D pour toutes les classes (PEI et DP)
-    const criteriaKeys = ['A', 'B', 'C', 'D'];
-    const unitsSem1 = currentData.unitsSem1;
-    const unitsSem2 = currentData.unitsSem2;
-    
-    // Vérifier si c'est la matière arabe
-    const isArabicSubject = currentData.subjectSelected === 'Acquisition de langue (اللغة العربية)';
-    
-    const thead = document.getElementById('criteriaTableHead');
-    const tbody = document.getElementById('criteriaTableBody');
-    
-    // Construire les en-têtes (en arabe si matière arabe)
-    let headerHTML = '<tr>';
-    headerHTML += isArabicSubject ? '<th>المعايير</th>' : '<th>Critères</th>';
-    
-    // En-têtes pour Semestre 1
-    if (unitsSem1 === 1) {
-        headerHTML += isArabicSubject ? `<th>الفصل الأول (/${maxValue})</th>` : `<th>Semestre 1 (/${maxValue})</th>`;
-    } else {
-        for (let i = 1; i <= unitsSem1; i++) {
-            headerHTML += isArabicSubject ? `<th>ف1-و${i} (/${maxValue})</th>` : `<th>S1-U${i} (/${maxValue})</th>`;
-        }
-        headerHTML += isArabicSubject ? `<th style="background-color: #e7f3ff;">متوسط ف1 (/${maxValue})</th>` : `<th style="background-color: #e7f3ff;">Moyenne S1 (/${maxValue})</th>`;
-    }
-    
-    // En-têtes pour Semestre 2
-    if (unitsSem2 === 1) {
-        headerHTML += isArabicSubject ? `<th>الفصل الثاني (/${maxValue})</th>` : `<th>Semestre 2 (/${maxValue})</th>`;
-    } else {
-        for (let i = 1; i <= unitsSem2; i++) {
-            headerHTML += isArabicSubject ? `<th>ف2-و${i} (/${maxValue})</th>` : `<th>S2-U${i} (/${maxValue})</th>`;
-        }
-        headerHTML += isArabicSubject ? `<th style="background-color: #e7f3ff;">متوسط ف2 (/${maxValue})</th>` : `<th style="background-color: #e7f3ff;">Moyenne S2 (/${maxValue})</th>`;
-    }
-    
-    headerHTML += isArabicSubject ? `<th>المستوى النهائي (/${maxValue})</th>` : `<th>Niveau Final (/${maxValue})</th>`;
-    headerHTML += isArabicSubject ? `<th>المجموع الكلي (/${isDPClass ? 28 : 32})</th>` : `<th>Seuil Total (/${isDPClass ? 28 : 32})</th>`;
-    headerHTML += isArabicSubject ? `<th>الدرجة النهائية (/${maxValue})</th>` : `<th>Note Finale (/${maxValue})</th>`;
-    headerHTML += '</tr>';
-    
-    thead.innerHTML = headerHTML;
-    
-    // Construire le corps du tableau
-    let bodyHTML = '';
-    
-    // Obtenir les noms des critères pour la matière actuelle
-    const criteriaNames = criteriaBySubject[currentData.subjectSelected] || {};
-    
-    criteriaKeys.forEach((key, index) => {
-        const criteriaData = currentData.criteriaValues[key] || {sem1: null, sem2: null, finalLevel: null, sem1Units: [], sem2Units: []};
-        
-        // Afficher "A: Nom du critère" au lieu de juste "A"
-        const criteriaLabel = criteriaNames[key] ? `${key}: ${criteriaNames[key]}` : `Critère ${key}`;
-        
-        bodyHTML += `<tr data-criteria="${key}"><td>${criteriaLabel}</td>`;
-        
-        // Colonnes pour Semestre 1
-        if (unitsSem1 === 1) {
-            const val = criteriaData.sem1 !== null ? criteriaData.sem1 : '';
-            bodyHTML += `<td class="sem1-cell"><input type="number" min="0" max="${maxValue}" value="${val}" oninput="validateInput(this)" data-unit="0"></td>`;
-        } else {
-            for (let i = 0; i < unitsSem1; i++) {
-                const val = criteriaData.sem1Units[i] !== null && criteriaData.sem1Units[i] !== undefined ? criteriaData.sem1Units[i] : '';
-                bodyHTML += `<td class="sem1-unit-cell"><input type="number" min="0" max="${maxValue}" value="${val}" oninput="validateInput(this)" data-unit="${i}"></td>`;
-            }
-            const avgVal = criteriaData.sem1 !== null ? criteriaData.sem1 : '';
-            bodyHTML += `<td class="sem1-avg-cell" style="background-color: #e7f3ff;"><input type="number" readonly tabindex="-1" value="${avgVal}" class="sem1-avg-input"></td>`;
-        }
-        
-        // Colonnes pour Semestre 2
-        if (unitsSem2 === 1) {
-            const val = criteriaData.sem2 !== null ? criteriaData.sem2 : '';
-            bodyHTML += `<td class="sem2-cell"><input type="number" min="0" max="${maxValue}" value="${val}" oninput="validateInput(this)" data-unit="0"></td>`;
-        } else {
-            for (let i = 0; i < unitsSem2; i++) {
-                const val = criteriaData.sem2Units[i] !== null && criteriaData.sem2Units[i] !== undefined ? criteriaData.sem2Units[i] : '';
-                bodyHTML += `<td class="sem2-unit-cell"><input type="number" min="0" max="${maxValue}" value="${val}" oninput="validateInput(this)" data-unit="${i}"></td>`;
-            }
-            const avgVal = criteriaData.sem2 !== null ? criteriaData.sem2 : '';
-            bodyHTML += `<td class="sem2-avg-cell" style="background-color: #e7f3ff;"><input type="number" readonly tabindex="-1" value="${avgVal}" class="sem2-avg-input"></td>`;
-        }
-        
-        // Niveau Final
-        const finalVal = criteriaData.finalLevel !== null ? criteriaData.finalLevel : '';
-        bodyHTML += `<td><input type="number" readonly tabindex="-1" value="${finalVal}" class="final-level-input"></td>`;
-        
-        // Seuil et Note (seulement sur la première ligne avec rowspan)
-        if (index === 0) {
-            bodyHTML += `<td rowspan="${criteriaKeys.length}"><input id="threshold" type="number" readonly tabindex="-1" style="background-color: #e9ecef;"></td>`;
-            bodyHTML += `<td rowspan="${criteriaKeys.length}"><input id="finalNote" type="number" readonly tabindex="-1" style="background-color: #e9ecef;"></td>`;
-        }
-        
-        bodyHTML += '</tr>';
-    });
-    
-    tbody.innerHTML = bodyHTML;
-    
-    // Recalculer les totaux
-    calculateTotals();
-}
-
-function handleCriteriaChange(inputElement) {
-    const row = inputElement.closest('tr');
-    if (!row) return;
-    
-    const criteriaType = row.getAttribute('data-criteria');
-    if (!criteriaType) return;
-    
-    const isDPClass = currentData.classSelected === 'DP1' || currentData.classSelected === 'DP2';
-    const maxValue = isDPClass ? 7 : 8;
-    
-    if (!currentData.criteriaValues[criteriaType]) {
-        currentData.criteriaValues[criteriaType] = { sem1: null, sem2: null, finalLevel: null, sem1Units: [], sem2Units: [] };
-    }
-    
-    // Collecter les valeurs des unités Semestre 1
-    const sem1UnitInputs = row.querySelectorAll('.sem1-unit-cell input, .sem1-cell input');
-    const sem1Units = [];
-    let sem1Sum = 0;
-    let sem1Count = 0;
-    
-    sem1UnitInputs.forEach((input) => {
-        const unitIndex = parseInt(input.getAttribute('data-unit') || '0');
-        const value = input.value !== '' ? parseFloat(input.value) : null;
-        sem1Units[unitIndex] = value;
-        if (value !== null && !isNaN(value)) {
-            sem1Sum += value;
-            sem1Count++;
-        }
-    });
-    
-    // Calculer la moyenne Semestre 1
-    let sem1Avg = null;
-    if (currentData.unitsSem1 === 1) {
-        sem1Avg = sem1Units[0];
-    } else if (sem1Count > 0) {
-        sem1Avg = Math.round(sem1Sum / sem1Count);
-    }
-    
-    // Mettre à jour l'affichage de la moyenne S1
-    const sem1AvgInput = row.querySelector('.sem1-avg-input');
-    if (sem1AvgInput) {
-        sem1AvgInput.value = sem1Avg !== null ? sem1Avg : '';
-    }
-    
-    // Collecter les valeurs des unités Semestre 2
-    const sem2UnitInputs = row.querySelectorAll('.sem2-unit-cell input, .sem2-cell input');
-    const sem2Units = [];
-    let sem2Sum = 0;
-    let sem2Count = 0;
-    
-    sem2UnitInputs.forEach((input) => {
-        const unitIndex = parseInt(input.getAttribute('data-unit') || '0');
-        const value = input.value !== '' ? parseFloat(input.value) : null;
-        sem2Units[unitIndex] = value;
-        if (value !== null && !isNaN(value)) {
-            sem2Sum += value;
-            sem2Count++;
-        }
-    });
-    
-    // Calculer la moyenne Semestre 2
-    let sem2Avg = null;
-    if (currentData.unitsSem2 === 1) {
-        sem2Avg = sem2Units[0];
-    } else if (sem2Count > 0) {
-        sem2Avg = Math.round(sem2Sum / sem2Count);
-    }
-    
-    // Mettre à jour l'affichage de la moyenne S2
-    const sem2AvgInput = row.querySelector('.sem2-avg-input');
-    if (sem2AvgInput) {
-        sem2AvgInput.value = sem2Avg !== null ? sem2Avg : '';
-    }
-    
-    // Calculer le niveau final (moyenne des deux semestres)
-    let finalLevel = null;
-    if (sem1Avg !== null && sem2Avg !== null) {
-        finalLevel = Math.round((sem1Avg + sem2Avg) / 2);
-    } else if (sem1Avg !== null) {
-        finalLevel = sem1Avg;
-    } else if (sem2Avg !== null) {
-        finalLevel = sem2Avg;
-    }
-    
-    // Mettre à jour l'affichage du niveau final
-    const finalLevelInput = row.querySelector('.final-level-input');
-    if (finalLevelInput) {
-        finalLevelInput.value = finalLevel !== null ? finalLevel : '';
-    }
-    
-    // Stocker dans currentData
-    currentData.criteriaValues[criteriaType].sem1 = sem1Avg;
-    currentData.criteriaValues[criteriaType].sem2 = sem2Avg;
-    currentData.criteriaValues[criteriaType].finalLevel = finalLevel;
-    currentData.criteriaValues[criteriaType].sem1Units = sem1Units;
-    currentData.criteriaValues[criteriaType].sem2Units = sem2Units;
-    
-    calculateTotals();
-}
-
-// Logique de sélection
-// Fonction pour retourner à l'accueil
-function goToHome() {
-    // Réinitialiser toutes les données
-    resetOnSectionChange();
-    
-    // Afficher uniquement les boutons de semestre
-    document.getElementById('step0').style.display = 'block';
-    document.getElementById('step0b').style.display = 'none';
-    document.getElementById('step1').style.display = 'none';
-    document.getElementById('step2').style.display = 'none';
-    document.getElementById('step3').style.display = 'none';
-    contributionEntrySections.style.display = 'none';
-    dataContainer.style.display = 'none';
-    studentInfoContainer.style.display = 'none';
-    
-    // Réinitialiser le semestre
-    currentSemester = 1;
-    updateSemesterUI();
-    
-    console.log('🏠 Retour à l\'accueil');
-}
-
-// --- Fonctions de navigation arrière ---
-function goBackToSemester() {
-    // Retour à la sélection de semestre (masquer la section)
-    document.getElementById('step0b').style.display = 'none';
-    // Réinitialiser sem sélectionné visuellement
-    const sem1Btn = document.getElementById('sem1Btn');
-    const sem2Btn = document.getElementById('sem2Btn');
-    if (sem1Btn) { sem1Btn.style.opacity = '1'; sem1Btn.style.boxShadow = 'none'; }
-    if (sem2Btn) { sem2Btn.style.opacity = '1'; sem2Btn.style.boxShadow = 'none'; }
-    currentSemester = 1;
-    const semBadge = document.getElementById('semesterBadge');
-    if (semBadge) semBadge.style.display = 'none';
-}
-
-function goBackToSection() {
-    // Retour à la sélection de section
-    document.getElementById('step1').style.display = 'none';
-    document.getElementById('step3').style.display = 'none';
-    studentInfoContainer.style.display = 'none';
-    contributionEntrySections.style.display = 'none';
-    dataContainer.style.display = 'none';
-    document.getElementById('step0').style.display = 'block';
-    document.getElementById('step0b').style.display = 'block';
-    currentData.classSelected = null;
-    currentData.studentSelected = null;
-    currentData.subjectSelected = null;
-    resetFormData();
-}
-
-function goBackToClass() {
-    // Retour à la sélection de classe
-    document.getElementById('step3').style.display = 'none';
-    studentInfoContainer.style.display = 'none';
-    contributionEntrySections.style.display = 'none';
-    dataContainer.style.display = 'none';
-    document.getElementById('step1').style.display = 'block';
-    currentData.studentSelected = null;
-    currentData.subjectSelected = null;
-    resetFormData();
-}
-
-function goBackToStudent() {
-    // Retour à la sélection d'élève (depuis les infos élève / matière)
-    contributionEntrySections.style.display = 'none';
-    dataContainer.style.display = 'none';
-    document.getElementById('step2').style.display = 'none';
-    studentInfoContainer.style.display = 'none';
-    document.getElementById('step3').style.display = 'block';
-    currentData.subjectSelected = null;
-    resetFormData();
-    // Ré-afficher la sélection d'élève
-    document.getElementById('step3').style.display = 'block';
-}
-
-function handleSemesterChange(semester) {
-    currentSemester = semester;
-    updateSemesterUI();
-
-    // Afficher les boutons de section
-    document.getElementById('step0b').style.display = 'block';
-
-    // Réinitialiser le verrou et recharger les matières si un élève est sélectionné
-    _isPopulatingSubjects = false;
-    if (currentData.studentSelected && currentData.classSelected) {
-        populateSubjects();
-    }
-
-    console.log(`📅 Semestre sélectionné: ${semester}`);
-}
-
-function updateSemesterUI() {
-    const sem1Btn = document.getElementById('sem1Btn');
-    const sem2Btn = document.getElementById('sem2Btn');
-    if (sem1Btn && sem2Btn) {
-        if (currentSemester === 1) {
-            sem1Btn.style.opacity = '1';
-            sem1Btn.style.boxShadow = '0 0 0 4px rgba(13,110,253,0.4)';
-            sem2Btn.style.opacity = '0.6';
-            sem2Btn.style.boxShadow = 'none';
-        } else {
-            sem2Btn.style.opacity = '1';
-            sem2Btn.style.boxShadow = '0 0 0 4px rgba(25,135,84,0.4)';
-            sem1Btn.style.opacity = '0.6';
-            sem1Btn.style.boxShadow = 'none';
-        }
-    }
-    // Afficher un badge semestre dans le header
-    const semBadge = document.getElementById('semesterBadge');
-    if (semBadge) {
-        semBadge.textContent = `Semestre ${currentSemester}`;
-        semBadge.style.backgroundColor = currentSemester === 1 ? '#0d6efd' : '#198754';
-        semBadge.style.display = 'inline-block';
-    }
-}
-
-// Mode Semestre 2: Les colonnes S1 sont éditables (feature 2) mais colorées
-// pour indiquer qu'elles appartiennent au Semestre 1.
+// =====================================================
+// SEMESTER 2 MODE
+// =====================================================
 function applySemester2Mode() {
-    const isArabicSubject = currentData.subjectSelected === 'Acquisition de langue (اللغة العربية)';
-    
-    // Afficher le banner S2
-    const banner = document.getElementById(isArabicSubject ? 's2InfoBannerArabic' : 's2InfoBanner');
-    if (banner) banner.style.display = 'block';
-    const otherBanner = document.getElementById(isArabicSubject ? 's2InfoBanner' : 's2InfoBannerArabic');
-    if (otherBanner) otherBanner.style.display = 'none';
-    
-    // Colonnes S1 : MODIFIABLES mais avec fond bleu clair pour signaler leur origine
-    const sem1Selector = isArabicSubject
-        ? '#criteriaTableBodyArabic .sem1-cell input, #criteriaTableBodyArabic .sem1-unit-cell input, #criteriaTableBodyArabic .sem1-unit input'
-        : '#criteriaTableBody .sem1-cell input, #criteriaTableBody .sem1-unit-cell input, #criteriaTableBody .sem1-unit input';
-    
-    document.querySelectorAll(sem1Selector).forEach(input => {
-        input.readOnly = false;  // ÉDITABLE (feature 2)
-        input.style.backgroundColor = '#d6e4ff';
-        input.style.cursor = '';
-        input.title = 'Note Semestre 1 (modifiable - sera sauvegardé dans S1)';
+    const isArabic = currentData.subjectSelected === 'Acquisition de langue (اللغة العربية)';
+    const banner = document.getElementById(isArabic ? 's2InfoBannerArabic' : 's2InfoBanner');
+    if (banner) banner.style.display = 'flex';
+    const other  = document.getElementById(isArabic ? 's2InfoBanner' : 's2InfoBannerArabic');
+    if (other) other.style.display = 'none';
+
+    const sel = isArabic
+        ? '#criteriaTableBodyArabic .sem1-cell input, #criteriaTableBodyArabic .sem1-unit-cell input'
+        : '#criteriaTableBody .sem1-cell input, #criteriaTableBody .sem1-unit-cell input';
+
+    document.querySelectorAll(sel).forEach(inp => {
+        inp.readOnly = false;
+        inp.style.backgroundColor = '#dbeafe';
+        inp.title = 'Note S1 — modifiable, sera sauvegardée dans S1';
     });
-    
-    // Colonnes S2 : actives
-    const sem2Selector = isArabicSubject
-        ? '#criteriaTableBodyArabic .sem2-cell input, #criteriaTableBodyArabic .sem2-unit-cell input, #criteriaTableBodyArabic .sem2-unit input'
-        : '#criteriaTableBody .sem2-cell input, #criteriaTableBody .sem2-unit-cell input, #criteriaTableBody .sem2-unit input';
-    
-    document.querySelectorAll(sem2Selector).forEach(input => {
-        input.readOnly = false;
-        input.style.backgroundColor = '';
-        input.style.cursor = '';
-        input.removeAttribute('title');
-    });
-    
-    console.log('✏️ Mode Semestre 2 activé - colonnes S1 éditables (bleu), S2 actives');
 }
 
-// Masquer les banners S2 (appelé quand on revient en S1)
 function hideSemester2Banners() {
-    const b1 = document.getElementById('s2InfoBanner');
-    const b2 = document.getElementById('s2InfoBannerArabic');
-    if (b1) b1.style.display = 'none';
-    if (b2) b2.style.display = 'none';
+    document.getElementById('s2InfoBanner')?.setAttribute('style','display:none');
+    document.getElementById('s2InfoBannerArabic')?.setAttribute('style','display:none');
 }
 
-function handleSectionChange(value) {
-    currentData.sectionSelected = value;
-    
-    // Masquer les boutons de section et afficher seulement le sélecteur de classe
-    document.getElementById('step0').style.display = 'none';
-    document.getElementById('step1').style.display = 'block';
-    
-    // Filtrer les classes selon la section
-    populateClassesForSection(value);
-    
-    resetOnSectionChange();
-}
-
-// Nouvelle fonction pour peupler les classes selon la section
-function populateClassesForSection(section) {
-    const classSelector = document.getElementById('classSelector');
-    classSelector.innerHTML = '<option value="">-- Sélectionnez une Classe --</option>';
-    
-    const availableClasses = {
-        'garçons': ['PEI1', 'PEI2', 'PEI3', 'PEI4', 'DP2'],
-        'filles': ['PEI1', 'PEI2', 'PEI3', 'PEI4', 'PEI5', 'DP1', 'DP2']
-    };
-    
-    const classes = availableClasses[section] || [];
-    classes.forEach(className => {
-        const option = document.createElement('option');
-        option.value = className;
-        option.textContent = className;
-        classSelector.appendChild(option);
-    });
-}
-
-function handleClassChange(value) {
-    currentData.classSelected = value;
-    resetOnClassChange();
-    if (value) populateStudents();
-}
-
-function handleStudentChange(value) {
-    currentData.studentSelected = value;
-    resetOnStudentChange();
-    if (value) {
-        showStudentInfo();
-        populateSubjects();
-    }
-}
-
-async function handleSubjectChange(value) {
-    currentData.subjectSelected = value;
-    resetOnSubjectChange();
-    if (value) {
-        const isArabicSubject = value === 'Acquisition de langue (اللغة العربية)';
-        
-        // Afficher/masquer les sections appropriées
-        const frenchSections = document.querySelectorAll('.french-section');
-        const arabicSections = document.querySelectorAll('.arabic-section');
-        
-        frenchSections.forEach(section => {
-            section.style.display = isArabicSubject ? 'none' : 'block';
-        });
-        
-        arabicSections.forEach(section => {
-            section.style.display = isArabicSubject ? 'block' : 'none';
-        });
-        
-        contributionEntrySections.style.display = "block";
-        dataContainer.style.display = "none";
-        
-        // Mettre à jour les en-têtes du tableau selon la classe
-        if (!isArabicSubject) {
-            updateCriteriaTableDynamically();
-            updateCriteriaTableHeaders();
-        } else {
-            updateCriteriaTableDynamicallyArabic();
-        }
-        
-        // Charger automatiquement les données (gère S1 et S2)
-        console.log('🔄 Chargement automatique des données pour:', value, '(Semestre', currentSemester, ')');
-        await fetchData();
-    }
-}
-
-function updateCriteriaTableDynamically() {
-    const isDPClass = currentData.classSelected === 'DP1' || currentData.classSelected === 'DP2';
-    const maxValue = isDPClass ? 7 : 8;
-    const maxThreshold = isDPClass ? 28 : 32;
-    
-    // Mettre à jour les en-têtes du tableau
-    const headers = document.querySelectorAll("#criteriaTable thead th");
-    if (headers.length >= 5) {
-        headers[1].textContent = `Semestre 1 (/${maxValue})`;
-        headers[2].textContent = `Semestre 2 (/${maxValue})`;
-        headers[3].textContent = `Niveau Final (/${maxValue})`;
-        headers[4].textContent = `Seuil Total (/${maxThreshold})`;
-        headers[5].textContent = `Note Finale (/${maxValue})`;
-    }
-    
-    // Mettre à jour les attributs max des inputs
-    document.querySelectorAll("#criteriaTable tbody input[type='number']").forEach(input => {
-        if (!input.readOnly) {
-            input.max = maxValue;
-        }
-    });
-}
-
-// Fonction pour mettre à jour le tableau arabe dynamiquement
-function updateCriteriaTableDynamicallyArabic() {
-    const isDPClass = currentData.classSelected === 'DP1' || currentData.classSelected === 'DP2';
-    const maxValue = isDPClass ? 7 : 8;
-    const maxThreshold = isDPClass ? 28 : 32;
-    
-    // Mettre à jour les en-têtes du tableau arabe
-    const headers = document.querySelectorAll("#criteriaTableArabic thead th");
-    if (headers.length >= 5) {
-        headers[1].textContent = `الفصل الأول (/${maxValue})`;
-        headers[2].textContent = `الفصل الثاني (/${maxValue})`;
-        headers[3].textContent = `المستوى النهائي (/${maxValue})`;
-        headers[4].textContent = `المجموع الكلي (/${maxThreshold})`;
-        headers[5].textContent = `الدرجة النهائية (/${maxValue})`;
-    }
-    
-    // Mettre à jour les attributs max des inputs arabes
-    document.querySelectorAll("#criteriaTableArabic tbody input[type='number']").forEach(input => {
-        if (!input.readOnly) {
-            input.max = maxValue;
-        }
-    });
-}
-
-// Fonction pour reconstruire le tableau des critères en arabe
-function rebuildCriteriaTableArabic() {
-    const isDPClass = currentData.classSelected === 'DP1' || currentData.classSelected === 'DP2';
-    const maxValue = isDPClass ? 7 : 8;
-    const maxThreshold = isDPClass ? 28 : 32;
-    const unitsSem1 = parseInt(currentData.unitsSem1) || 1;
-    const unitsSem2 = parseInt(currentData.unitsSem2) || 1;
-    // CORRECTION: Utiliser A-D pour toutes les classes (PEI et DP)
-    const criteriaKeys = ['A', 'B', 'C', 'D'];
-    
-    // Noms des critères en arabe
-    const criteriaNames = {
-        'A': 'الاستماع',
-        'B': 'القراءة',
-        'C': 'التحدث',
-        'D': 'الكتابة'
-    };
-    
-    const thead = document.getElementById('criteriaTableHeadArabic');
-    const tbody = document.getElementById('criteriaTableBodyArabic');
-    
-    // Construire l'en-tête
-    let headerHTML = '<tr><th>المعايير</th>';
-    
-    // Semestre 1
-    if (unitsSem1 > 1) {
-        for (let i = 1; i <= unitsSem1; i++) {
-            headerHTML += `<th>الوحدة ${i} - ف1 (/${maxValue})</th>`;
-        }
-        headerHTML += `<th>متوسط ف1 (/${maxValue})</th>`;
-    } else {
-        headerHTML += `<th>الفصل الأول (/${maxValue})</th>`;
-    }
-    
-    // Semestre 2
-    if (unitsSem2 > 1) {
-        for (let i = 1; i <= unitsSem2; i++) {
-            headerHTML += `<th>الوحدة ${i} - ف2 (/${maxValue})</th>`;
-        }
-        headerHTML += `<th>متوسط ف2 (/${maxValue})</th>`;
-    } else {
-        headerHTML += `<th>الفصل الثاني (/${maxValue})</th>`;
-    }
-    
-    headerHTML += `<th>المستوى النهائي (/${maxValue})</th>`;
-    headerHTML += `<th>المجموع الكلي (/${maxThreshold})</th>`;
-    headerHTML += `<th>الدرجة النهائية (/${maxValue})</th>`;
-    headerHTML += '</tr>';
-    
-    thead.innerHTML = headerHTML;
-    
-    // Construire le corps du tableau
-    let bodyHTML = '';
-    criteriaKeys.forEach((key, index) => {
-        const criteriaData = currentData.criteriaValues[key] || {sem1: null, sem2: null, finalLevel: null, sem1Units: [], sem2Units: []};
-        
-        // Afficher "A: الاستماع" au lieu de juste "الاستماع"
-        const criterionName = criteriaNames[key] || key;
-        const criteriaLabel = criteriaNames[key] ? `${key}: ${criterionName}` : key;
-        bodyHTML += `<tr data-criteria="${key}">`;
-        bodyHTML += `<td>${criteriaLabel}</td>`;
-        
-        // Semestre 1
-        if (unitsSem1 > 1) {
-            for (let i = 0; i < unitsSem1; i++) {
-                const val = criteriaData.sem1Units[i] !== null && criteriaData.sem1Units[i] !== undefined ? criteriaData.sem1Units[i] : '';
-                bodyHTML += `<td class="sem1-unit"><input type="number" min="0" max="${maxValue}" value="${val}" oninput="validateInput(this); handleCriteriaChange('${key}', 'sem1', ${i+1})" data-unit="${i}"></td>`;
-            }
-            const avgVal = criteriaData.sem1 !== null ? criteriaData.sem1 : '';
-            bodyHTML += `<td><input type="number" readonly tabindex="-1" value="${avgVal}" class="sem1-avg-input"></td>`;
-        } else {
-            const val = criteriaData.sem1 !== null ? criteriaData.sem1 : '';
-            bodyHTML += `<td class="sem1-cell"><input type="number" min="0" max="${maxValue}" value="${val}" oninput="validateInput(this); handleCriteriaChange('${key}', 'sem1', 1)" data-unit="0"></td>`;
-        }
-        
-        // Semestre 2
-        if (unitsSem2 > 1) {
-            for (let i = 0; i < unitsSem2; i++) {
-                const val = criteriaData.sem2Units[i] !== null && criteriaData.sem2Units[i] !== undefined ? criteriaData.sem2Units[i] : '';
-                bodyHTML += `<td class="sem2-unit"><input type="number" min="0" max="${maxValue}" value="${val}" oninput="validateInput(this); handleCriteriaChange('${key}', 'sem2', ${i+1})" data-unit="${i}"></td>`;
-            }
-            const avgVal = criteriaData.sem2 !== null ? criteriaData.sem2 : '';
-            bodyHTML += `<td><input type="number" readonly tabindex="-1" value="${avgVal}" class="sem2-avg-input"></td>`;
-        } else {
-            const val = criteriaData.sem2 !== null ? criteriaData.sem2 : '';
-            bodyHTML += `<td class="sem2-cell"><input type="number" min="0" max="${maxValue}" value="${val}" oninput="validateInput(this); handleCriteriaChange('${key}', 'sem2', 1)" data-unit="0"></td>`;
-        }
-        
-        const finalVal = criteriaData.finalLevel !== null ? criteriaData.finalLevel : '';
-        bodyHTML += `<td><input type="number" readonly tabindex="-1" value="${finalVal}" class="final-level-input"></td>`;
-        
-        if (index === 0) {
-            bodyHTML += `<td rowspan="4"><input id="thresholdArabic" type="number" readonly tabindex="-1" style="background-color: #e9ecef;"></td>`;
-            bodyHTML += `<td rowspan="4"><input id="finalNoteArabic" type="number" readonly tabindex="-1" style="background-color: #e9ecef;"></td>`;
-        }
-        
-        bodyHTML += '</tr>';
-    });
-    
-    tbody.innerHTML = bodyHTML;
-    
-    // Recalculer les totaux après construction
-    calculateTotals();
-}
-
-
-// Affichage des informations élève
-async function showStudentInfo() {
-    const studentSelected = currentData.studentSelected;
-    const studentPhotoPreview = document.getElementById('studentPhotoPreview');
-
-    if (studentSelected) {
-        studentInfoContainer.style.display = "block";
-        document.getElementById('studentNameDisplay').textContent = studentSelected;
-
-        // Utiliser les données locales pour la photo et la date initiale
-        const studentLocalData = studentData[studentSelected];
-        let localPhotoUrl = studentLocalData?.photo || null;
-        let localBirthdate = studentLocalData?.birthdate || '';
-
-        currentData.studentPhoto = localPhotoUrl;
-        currentData.studentBirthdate = localBirthdate;
-
-        // Afficher la photo
-        if (localPhotoUrl) {
-            studentPhotoPreview.src = localPhotoUrl;
-            studentPhotoPreview.style.display = 'block';
-            studentPhotoPreview.onerror = () => {
-                console.error(`Erreur chargement image: ${localPhotoUrl}`);
-                studentPhotoPreview.style.display = 'none';
-            };
-        } else {
-            studentPhotoPreview.style.display = 'none';
-            studentPhotoPreview.src = '#';
-        }
-
-        studentBirthdateInput.value = localBirthdate;
-
-        // Récupérer la date de naissance du serveur
-        try {
-            const infoFromServer = await apiCall('fetchStudentInfo', { studentSelected });
-            if (infoFromServer && infoFromServer.studentBirthdate) {
-                studentBirthdateInput.value = infoFromServer.studentBirthdate;
-                currentData.studentBirthdate = infoFromServer.studentBirthdate;
-            }
-        } catch (error) {
-            console.error('Erreur récupération infos élève:', error);
-        }
-    } else {
-        studentInfoContainer.style.display = "none";
-    }
-}
-
-// Population des listes déroulantes
-function populateStudents() {
-    const classSelected = currentData.classSelected;
-    const sectionSelected = currentData.sectionSelected;
-    studentSelector.innerHTML = "<option value=''>-- Sélectionnez un élève --</option>";
-    
-    if (classSelected && sectionSelected && studentsByClassAndSection[sectionSelected] && studentsByClassAndSection[sectionSelected][classSelected]) {
-        const studentList = studentsByClassAndSection[sectionSelected][classSelected];
-        studentList.sort((a, b) => a.localeCompare(b));
-        
-        studentList.forEach(student => {
-            const option = document.createElement("option");
-            option.value = student; // Valeur = prénom (pour DB)
-            // Affichage = nom complet si disponible
-            const fullName = studentData[student]?.fullName || student;
-            option.textContent = fullName;
-            studentSelector.appendChild(option);
-        });
-        
-        document.getElementById("step3").style.display = "block";
-    } else {
-        document.getElementById("step3").style.display = "none";
-    }
-    
-    studentSelector.value = currentData.studentSelected || "";
-}
-
-// Icons pour chaque matière
-const subjectIcons = {
-    "Mathématiques": "📐",
-    "Individus et sociétés": "🌍",
-    "Langue et littérature": "📚",
-    "Design": "🎨",
-    "Sciences": "🔬",
-    "Art visuel": "🖼️",
-    "Éducation physique et sportive": "⚽",
-    "Acquisition de langue (Anglais)": "🇬🇧",
-    "Acquisition de langue (اللغة العربية)": "🇸🇦"
-};
-
-// Stocker les matières complétées par élève
-let completedSubjects = {};
-// Verrou pour éviter les appels parallèles à populateSubjects (cause de duplication)
-let _isPopulatingSubjects = false;
-
-async function populateSubjects() {
-    // ANTI-DUPLICATION : si déjà en cours d'exécution, ignorer cet appel
-    if (_isPopulatingSubjects) {
-        console.log('⏭️ populateSubjects déjà en cours, appel ignoré');
-        return;
-    }
-    _isPopulatingSubjects = true;
-
-    try {
-        const classSelected = currentData.classSelected;
-        const studentSelected = currentData.studentSelected;
-        const subjectsGrid = document.getElementById("subjectsGrid");
-
-        if (!subjectsGrid) {
-            console.error("Element subjectsGrid not found");
-            return;
-        }
-
-        // Vider la grille AVANT l'appel async pour éviter l'affichage partiel
-        subjectsGrid.innerHTML = "";
-
-        if (classSelected && studentSelected && subjectsByClass[classSelected]) {
-            // Récupérer les contributions existantes pour cet élève
-            try {
-                const response = await apiCall('fetchStudentContributions', {
-                    studentSelected: studentSelected,
-                    classSelected: classSelected,
-                    sectionSelected: currentData.sectionSelected,
-                    semester: currentSemester
-                });
-
-                // Vérifier que l'élève/classe n'ont pas changé pendant l'appel async
-                if (currentData.studentSelected !== studentSelected || currentData.classSelected !== classSelected) {
-                    console.log('⚠️ Sélection changée pendant le chargement, annulation');
-                    return;
-                }
-
-                // Marquer les matières avec des contributions
-                completedSubjects[studentSelected] = {};
-                if (response && response.contributions && Array.isArray(response.contributions)) {
-                    // Déduplication côté client également
-                    const seen = new Set();
-                    response.contributions.forEach(contrib => {
-                        if (contrib.subjectSelected && !seen.has(contrib.subjectSelected)) {
-                            seen.add(contrib.subjectSelected);
-                            completedSubjects[studentSelected][contrib.subjectSelected] = true;
-                        }
-                    });
-                }
-                console.log(`✅ Matières complétées pour ${studentSelected}:`, Object.keys(completedSubjects[studentSelected] || {}));
-            } catch (error) {
-                console.error("Erreur lors de la récupération des contributions:", error);
-                completedSubjects[studentSelected] = {};
-            }
-
-            // Vider à nouveau la grille avant de la remplir (sécurité)
-            subjectsGrid.innerHTML = "";
-
-            // Créer les cartes de matières (une seule fois, sans doublons)
-            const subjectsToShow = subjectsByClass[classSelected];
-            const uniqueSubjects = [...new Set(subjectsToShow)]; // Dédoublonnage préventif
-
-            uniqueSubjects.forEach(subject => {
-                const card = document.createElement("div");
-                card.className = "subject-card";
-
-                // Marquer comme complétée si elle a déjà une contribution
-                const isCompleted = completedSubjects[studentSelected] && completedSubjects[studentSelected][subject];
-                if (isCompleted) {
-                    card.classList.add("completed");
-                }
-
-                // Marquer comme sélectionnée si c'est la matière actuelle
-                if (currentData.subjectSelected === subject) {
-                    card.classList.add("selected");
-                }
-
-                const icon = subjectIcons[subject] || "📖";
-
-                card.innerHTML = `
-                    <div class="subject-icon">${icon}</div>
-                    <h3>${subject}</h3>
-                `;
-
-                card.onclick = () => handleSubjectCardClick(subject);
-
-                subjectsGrid.appendChild(card);
-            });
-
-            document.getElementById("step2").style.display = "block";
-        } else {
-            document.getElementById("step2").style.display = "none";
-        }
-    } finally {
-        // Toujours libérer le verrou, même en cas d'erreur
-        _isPopulatingSubjects = false;
-    }
-}
-
-function handleSubjectCardClick(subject) {
-    // Retirer la classe 'selected' de toutes les cartes
-    document.querySelectorAll('.subject-card').forEach(card => {
-        card.classList.remove('selected');
-    });
-    
-    // Ajouter la classe 'selected' à la carte cliquée
-    event.target.closest('.subject-card').classList.add('selected');
-    
-    // Appeler handleSubjectChange avec la matière sélectionnée
-    handleSubjectChange(subject);
-}
-
-function updateCriteriaTableHeaders() {
-    const subject = currentData.subjectSelected;
-    const criteriaLabels = criteriaBySubject[subject] || {};
-    const rows = document.querySelectorAll("#criteriaTable tbody tr");
-    // CORRECTION: Utiliser A-D pour toutes les classes
-    const criteriaKeys = ['A', 'B', 'C', 'D'];
-    
-    rows.forEach((row, index) => {
-        const key = criteriaKeys[index]; // A, B, C ou D
-        const labelCell = row.cells[0];
-        if (labelCell) {
-            // Afficher le critère avec son nom: "A: Connaissances et compréhension"
-            const criterionName = criteriaLabels[key] || 'Critère ' + key;
-            labelCell.textContent = key + ': ' + criterionName;
-        }
-    });
-}
-
-// Nouvelle fonction pour mettre à jour les labels en arabe
-function updateArabicLabels() {
-    // Titre de la section Critères Initiaux
-    const commHeader = document.querySelector('#communicationTable h2');
-    if (commHeader) {
-        commHeader.textContent = 'المعايير الأولية (مهارات منهج التعلم)';
-    }
-    
-    // Description E, A, PA, I
-    const commDesc = document.querySelector('#communicationTable p');
-    if (commDesc) {
-        commDesc.innerHTML = `
-            <span style="font-weight: bold;">م</span>: ممتاز | 
-            <span style="font-weight: bold;">م.ج</span>: مكتسب جيداً | 
-            <span style="font-weight: bold;">م.ج</span>: مكتسب جزئياً | 
-            <span style="font-weight: bold;">غ.ك</span>: غير كافٍ
-        `;
-    }
-    
-    // En-têtes du tableau Communication
-    const commTableHeaders = document.querySelectorAll('#communicationTable thead th');
-    if (commTableHeaders.length >= 6) {
-        commTableHeaders[1].textContent = 'التواصل';
-        commTableHeaders[2].textContent = 'التعاون';
-        commTableHeaders[3].textContent = 'الإدارة الذاتية';
-        commTableHeaders[4].textContent = 'البحث';
-        commTableHeaders[5].textContent = 'التأمل';
-    }
-    
-    // Ligne Évaluation
-    const commTableBody = document.querySelector('#communicationTable tbody th');
-    if (commTableBody) {
-        commTableBody.textContent = 'التقييم';
-    }
-    
-    // Titre Critères d'Évaluation
-    const criteriaHeader = document.querySelector('#criteriaTable h2');
-    if (criteriaHeader) {
-        criteriaHeader.textContent = 'معايير التقييم (المادة)';
-    }
-    
-    // Labels des sélecteurs d'unités
-    const unitsSem1Label = document.querySelector('#criteriaTable label:first-child strong');
-    if (unitsSem1Label) {
-        unitsSem1Label.textContent = 'عدد الوحدات - الفصل الأول:';
-    }
-    
-    const unitsSem2Label = document.querySelector('#criteriaTable label:last-child strong');
-    if (unitsSem2Label) {
-        unitsSem2Label.textContent = 'عدد الوحدات - الفصل الثاني:';
-    }
-    
-    // Options des sélecteurs
-    updateSelectOptionsArabic('unitsSem1Selector');
-    updateSelectOptionsArabic('unitsSem2Selector');
-    
-    // Titre Commentaires
-    const commentsHeader = document.querySelector('#criteriaTable h3:nth-of-type(1)');
-    if (commentsHeader) {
-        commentsHeader.textContent = 'التعليقات';
-    }
-    
-    // Placeholder commentaires
-    const commentsTextarea = document.getElementById('teacherComment');
-    if (commentsTextarea) {
-        commentsTextarea.placeholder = 'اكتب تعليقاتك هنا...';
-    }
-    
-    // Titre Nom de l'enseignant
-    const teacherHeader = document.querySelector('#criteriaTable h3:nth-of-type(2)');
-    if (teacherHeader) {
-        teacherHeader.textContent = 'اسم المعلم';
-    }
-    
-    // Placeholder nom enseignant
-    const teacherInput = document.getElementById('teacherName');
-    if (teacherInput) {
-        teacherInput.placeholder = 'أدخل اسمك';
-    }
-    
-    // Bouton Soumettre
-    const submitBtn = document.getElementById('submitButton');
-    if (submitBtn) {
-        submitBtn.textContent = 'إرسال / تحديث';
-    }
-}
-
-// Fonction pour réinitialiser les labels en français
-function resetFrenchLabels() {
-    // Titre de la section Critères Initiaux
-    const commHeader = document.querySelector('#communicationTable h2');
-    if (commHeader) {
-        commHeader.textContent = 'Critères Initiaux (Compétences Approche de l\'Apprentissage)';
-    }
-    
-    // Description E, A, PA, I
-    const commDesc = document.querySelector('#communicationTable p');
-    if (commDesc) {
-        commDesc.innerHTML = `
-            <span style="font-weight: bold;">E</span>: Excellent | 
-            <span style="font-weight: bold;">A</span>: Acquis | 
-            <span style="font-weight: bold;">PA</span>: Partiellement Acquis | 
-            <span style="font-weight: bold;">I</span>: Insuffisant
-        `;
-    }
-    
-    // En-têtes du tableau Communication
-    const commTableHeaders = document.querySelectorAll('#communicationTable thead th');
-    if (commTableHeaders.length >= 6) {
-        commTableHeaders[1].textContent = 'Communication';
-        commTableHeaders[2].textContent = 'Collaboration';
-        commTableHeaders[3].textContent = 'Autogestion';
-        commTableHeaders[4].textContent = 'Recherche';
-        commTableHeaders[5].textContent = 'Réflexion';
-    }
-    
-    // Ligne Évaluation
-    const commTableBody = document.querySelector('#communicationTable tbody th');
-    if (commTableBody) {
-        commTableBody.textContent = 'Évaluation';
-    }
-    
-    // Titre Critères d'Évaluation
-    const criteriaHeader = document.querySelector('#criteriaTable h2');
-    if (criteriaHeader) {
-        criteriaHeader.textContent = 'Critères d\'Évaluation (Matière)';
-    }
-    
-    // Labels des sélecteurs d'unités
-    const unitsSem1Label = document.querySelector('#criteriaTable label:first-child strong');
-    if (unitsSem1Label) {
-        unitsSem1Label.textContent = 'Nombre d\'unités - Semestre 1:';
-    }
-    
-    const unitsSem2Label = document.querySelector('#criteriaTable label:last-child strong');
-    if (unitsSem2Label) {
-        unitsSem2Label.textContent = 'Nombre d\'unités - Semestre 2:';
-    }
-    
-    // Options des sélecteurs
-    updateSelectOptionsFrench('unitsSem1Selector');
-    updateSelectOptionsFrench('unitsSem2Selector');
-    
-    // Titre Commentaires
-    const commentsHeader = document.querySelector('#criteriaTable h3:nth-of-type(1)');
-    if (commentsHeader) {
-        commentsHeader.textContent = 'Commentaires';
-    }
-    
-    // Placeholder commentaires
-    const commentsTextarea = document.getElementById('teacherComment');
-    if (commentsTextarea) {
-        commentsTextarea.placeholder = 'Écrivez vos commentaires ici...';
-    }
-    
-    // Titre Nom de l'enseignant
-    const teacherHeader = document.querySelector('#criteriaTable h3:nth-of-type(2)');
-    if (teacherHeader) {
-        teacherHeader.textContent = 'Nom de l\'enseignant';
-    }
-    
-    // Placeholder nom enseignant
-    const teacherInput = document.getElementById('teacherName');
-    if (teacherInput) {
-        teacherInput.placeholder = 'Entrez votre nom';
-    }
-    
-    // Bouton Soumettre
-    const submitBtn = document.getElementById('submitButton');
-    if (submitBtn) {
-        submitBtn.textContent = 'Soumettre / Mettre à jour';
-    }
-}
-
-// Fonction pour mettre à jour les options en arabe
-function updateSelectOptionsArabic(selectId) {
-    const select = document.getElementById(selectId);
-    if (!select) return;
-    
-    const currentValue = select.value;
-    select.innerHTML = `
-        <option value="1">وحدة واحدة (درجة مباشرة)</option>
-        <option value="2">وحدتان</option>
-        <option value="3">3 وحدات</option>
-        <option value="4">4 وحدات</option>
-        <option value="5">5 وحدات</option>
-    `;
-    select.value = currentValue;
-}
-
-// Fonction pour mettre à jour les options en français
-function updateSelectOptionsFrench(selectId) {
-    const select = document.getElementById(selectId);
-    if (!select) return;
-    
-    const currentValue = select.value;
-    select.innerHTML = `
-        <option value="1">1 unité (note directe)</option>
-        <option value="2">2 unités</option>
-        <option value="3">3 unités</option>
-        <option value="4">4 unités</option>
-        <option value="5">5 unités</option>
-    `;
-    select.value = currentValue;
-}
-
-// Validation et calculs
-function validateInput(input) {
-    const isDPClass = currentData.classSelected === 'DP1' || currentData.classSelected === 'DP2';
-    const maxValue = isDPClass ? 7 : 8;
-    
-    input.value = input.value.replace(/[^0-9]/g, '');
-    if (input.value !== '' && parseFloat(input.value) > maxValue) {
-        alert(`Le maximum est ${maxValue}.`);
-        input.value = maxValue;
-    }
-    handleCriteriaChange(input);
-}
-
-function calculateRow(rowElement) {
-    // Utiliser handleCriteriaChange qui gère maintenant les unités
-    const firstInput = rowElement.querySelector('input[type="number"]:not([readonly])');
-    if (firstInput) {
-        handleCriteriaChange(firstInput);
-    }
-}
-
-function calculateTotals() {
-    const isArabicSubject = currentData.subjectSelected === 'Acquisition de langue (اللغة العربية)';
-    const tbody = isArabicSubject ? document.getElementById("criteriaTableBodyArabic") : document.getElementById("criteriaTableBody");
-    const rows = tbody ? tbody.querySelectorAll("tr") : [];
-    
-    const isDPClass = currentData.classSelected === 'DP1' || currentData.classSelected === 'DP2';
-    const maxNote = isDPClass ? 7 : 8;
-    const maxThreshold = isDPClass ? 28 : 32; // 4 critères * 7 ou 8
-    
-    let totalLevel = 0;
-    
-    rows.forEach(row => {
-        const finalLevelInput = row.querySelector('.final-level-input');
-        if (finalLevelInput?.value !== '') {
-            totalLevel += parseFloat(finalLevelInput.value);
-        }
-    });
-    
-    const thresholdId = isArabicSubject ? "thresholdArabic" : "threshold";
-    const thresholdInput = document.getElementById(thresholdId);
-    if (thresholdInput) {
-        thresholdInput.value = totalLevel;
-    }
-    
-    let finalNote = 0;
-    if (totalLevel > 0) {
-        finalNote = Math.round(totalLevel / 4);
-        if (finalNote < 1) finalNote = 1;
-        if (finalNote > maxNote) finalNote = maxNote;
-    }
-    
-    const finalNoteId = isArabicSubject ? "finalNoteArabic" : "finalNote";
-    const finalNoteInput = document.getElementById(finalNoteId);
-    if (finalNoteInput) {
-        finalNoteInput.value = finalNote;
-    }
-}
-
-// Récupération des données
+// =====================================================
+// FETCH DATA
+// =====================================================
 async function fetchData() {
-    if (currentData.studentSelected && currentData.subjectSelected) {
-        try {
-            // Charger les données du semestre courant
-            const data = await apiCall('fetchData', {
-                studentSelected: currentData.studentSelected,
-                subjectSelected: currentData.subjectSelected,
-                classSelected: currentData.classSelected,
-                sectionSelected: currentData.sectionSelected,
-                semester: currentSemester
-            });
-            
-            resetInputTables();
-            
-            if (currentSemester === 2) {
-                // En mode S2: charger d'abord les notes S1 comme référence
-                let s1Data = null;
-                try {
-                    s1Data = await apiCall('fetchData', {
-                        studentSelected: currentData.studentSelected,
-                        subjectSelected: currentData.subjectSelected,
-                        classSelected: currentData.classSelected,
-                        sectionSelected: currentData.sectionSelected,
-                        semester: 1
-                    });
-                } catch(e) { /* ignore */ }
-                
-                // Extraire les notes S1 depuis les données S1
-                const s1CriteriaValues = (s1Data && !s1Data.noDataForSubject) 
-                    ? JSON.parse(JSON.stringify(s1Data.criteriaValues || {}))
-                    : {};
-                
-                if (data && !data.noDataForSubject) {
-                    // Il y a déjà des données S2 sauvegardées -> les charger
-                    // CORRECTION BUG 1: Le document S2 en DB ne contient plus que sem2.
-                    // On injecte les valeurs sem1 depuis l'enregistrement S1 séparé.
-                    if (!data.criteriaValues) data.criteriaValues = {};
-                    ['A','B','C','D'].forEach(key => {
-                        if (!data.criteriaValues[key]) data.criteriaValues[key] = {};
-                        // Injecter sem1 depuis l'enregistrement S1 (lecture seule côté formulaire)
-                        data.criteriaValues[key].sem1      = s1CriteriaValues[key]?.sem1      ?? null;
-                        data.criteriaValues[key].sem1Units = s1CriteriaValues[key]?.sem1Units ?? [];
-                        // Recalculer finalLevel = moyenne(sem1, sem2)
-                        const s1v = data.criteriaValues[key].sem1;
-                        const s2v = data.criteriaValues[key].sem2 ?? null;
-                        if (s1v !== null && s2v !== null) {
-                            data.criteriaValues[key].finalLevel = Math.round((parseFloat(s1v) + parseFloat(s2v)) / 2);
-                        } else if (s2v !== null) {
-                            data.criteriaValues[key].finalLevel = s2v;
-                        } else {
-                            data.criteriaValues[key].finalLevel = s1v;
-                        }
-                    });
-                    fillFormWithData(data);
-                    currentContributionId = data._id || null;
-                } else {
-                    // Pas encore de données S2 -> préparer le formulaire vierge avec S1 en référence
-                    currentContributionId = null;
-                    // Nom enseignant conservé (localStorage)
-                    teacherNameInput.value = currentData.teacherName || '';
-                    const teacherNameArabicEl = document.getElementById('teacherNameArabic');
-                    if (teacherNameArabicEl) teacherNameArabicEl.value = currentData.teacherName || '';
-                    // Vider le commentaire S2 (pas de données S2 existantes)
-                    const commentElS2 = document.getElementById('teacherComment');
-                    if (commentElS2) commentElS2.value = '';
-                    const commentElS2Ar = document.getElementById('teacherCommentArabic');
-                    if (commentElS2Ar) commentElS2Ar.value = '';
-                    currentData.teacherComment = null;
-                    // Vider les ATL pour S2 (nouveaux)
-                    document.querySelectorAll('#communicationTable tbody select').forEach(s => s.value = '');
-                    document.querySelectorAll('#communicationTableArabic tbody select').forEach(s => s.value = '');
-                    currentData.communicationEvaluation = ['', '', '', '', ''];
-                    // Pré-remplir les notes S1 (pour affichage en lecture seule), sem2 vide
-                    ['A','B','C','D'].forEach(key => {
-                        currentData.criteriaValues[key] = {
-                            sem1:       s1CriteriaValues[key]?.sem1      ?? null,
-                            sem1Units:  s1CriteriaValues[key]?.sem1Units ?? [],
-                            sem2:       null,
-                            sem2Units:  [],
-                            finalLevel: s1CriteriaValues[key]?.sem1      ?? null
-                        };
-                    });
-                }
-                
-                // Reconstruire le tableau avec les notes S1 pré-remplies
-                const isArabicSubject = currentData.subjectSelected === 'Acquisition de langue (اللغة العربية)';
-                if (isArabicSubject) {
-                    rebuildCriteriaTableArabic();
-                } else {
-                    rebuildCriteriaTable();
-                }
-                
-                // Verrouiller les colonnes S1 (qui sont maintenant remplies avec les notes S1)
-                applySemester2Mode();
-                
+    if (!currentData.studentSelected || !currentData.subjectSelected) return;
+    try {
+        const data = await apiCall('fetchData', {
+            studentSelected: currentData.studentSelected,
+            subjectSelected: currentData.subjectSelected,
+            classSelected:   currentData.classSelected,
+            sectionSelected: currentData.sectionSelected,
+            semester: currentSemester
+        });
+
+        resetInputTables();
+
+        if (currentSemester === 2) {
+            let s1Data = null;
+            try {
+                s1Data = await apiCall('fetchData', {
+                    studentSelected: currentData.studentSelected,
+                    subjectSelected: currentData.subjectSelected,
+                    classSelected:   currentData.classSelected,
+                    sectionSelected: currentData.sectionSelected,
+                    semester: 1
+                });
+            } catch(e) {}
+
+            const s1cv = (s1Data && !s1Data.noDataForSubject) ? JSON.parse(JSON.stringify(s1Data.criteriaValues||{})) : {};
+
+            if (data && !data.noDataForSubject) {
+                if (!data.criteriaValues) data.criteriaValues = {};
+                ['A','B','C','D'].forEach(k => {
+                    if (!data.criteriaValues[k]) data.criteriaValues[k] = {};
+                    data.criteriaValues[k].sem1      = s1cv[k]?.sem1      ?? null;
+                    data.criteriaValues[k].sem1Units = s1cv[k]?.sem1Units ?? [];
+                    const s1v = data.criteriaValues[k].sem1;
+                    const s2v = data.criteriaValues[k].sem2 ?? null;
+                    data.criteriaValues[k].finalLevel = s1v!==null&&s2v!==null ? Math.round((parseFloat(s1v)+parseFloat(s2v))/2) : (s2v!==null?s2v:s1v);
+                });
+                fillFormWithData(data);
+                currentContributionId = data._id || null;
             } else {
-                // Mode S1: comportement normal
-                hideSemester2Banners();
-                if (data && !data.noDataForSubject) {
-                    fillFormWithData(data);
-                    currentContributionId = data._id || null;
-                } else {
-                    currentContributionId = null;
-                    teacherNameInput.value = currentData.teacherName || '';
-                    const tcEl = document.getElementById('teacherComment');
-                    if (tcEl) tcEl.value = '';
-                    currentData.teacherComment = null;
-                    calculateTotals();
-                }
+                currentContributionId = null;
+                if (teacherNameInput) teacherNameInput.value = currentData.teacherName || '';
+                const tcAr = document.getElementById('teacherNameArabic');
+                if (tcAr) tcAr.value = currentData.teacherName || '';
+                ['teacherComment','teacherCommentArabic'].forEach(id => {
+                    const el = document.getElementById(id); if(el) el.value='';
+                });
+                currentData.teacherComment = null;
+                document.querySelectorAll('#communicationTable tbody select, #communicationTableArabic tbody select').forEach(s=>s.value='');
+                currentData.communicationEvaluation = ['','','','',''];
+                ['A','B','C','D'].forEach(k => {
+                    currentData.criteriaValues[k] = {
+                        sem1: s1cv[k]?.sem1??null, sem1Units: s1cv[k]?.sem1Units??[],
+                        sem2: null, sem2Units: [], finalLevel: s1cv[k]?.sem1??null
+                    };
+                });
             }
-            
-            contributionEntrySections.style.display = "block";
-        } catch (error) {
-            console.error('Erreur récupération données:', error);
-            alert('Erreur lors de la récupération des données.');
+
+            const isArabic = currentData.subjectSelected === 'Acquisition de langue (اللغة العربية)';
+            if (isArabic) rebuildCriteriaTableArabic(); else rebuildCriteriaTable();
+            applySemester2Mode();
+        } else {
+            hideSemester2Banners();
+            if (data && !data.noDataForSubject) {
+                fillFormWithData(data);
+                currentContributionId = data._id || null;
+            } else {
+                currentContributionId = null;
+                if (teacherNameInput) teacherNameInput.value = currentData.teacherName || '';
+                const tc = document.getElementById('teacherComment');
+                if (tc) tc.value = '';
+                currentData.teacherComment = null;
+                calculateTotals();
+            }
         }
+
+        contributionEntrySections.style.display = 'block';
+    } catch(e) {
+        console.error('fetchData error:', e);
+        showToast('Erreur lors du chargement des données', 'error');
     }
 }
 
 function fillFormWithData(data) {
-    const isArabicSubject = currentData.subjectSelected === 'Acquisition de langue (اللغة العربية)';
-    
-    // Remplir le nom de l'enseignant
-    teacherNameInput.value = data.teacherName || currentData.teacherName || '';
-    currentData.teacherName = teacherNameInput.value;
+    const isArabic = currentData.subjectSelected === 'Acquisition de langue (اللغة العربية)';
+    if (teacherNameInput) teacherNameInput.value = data.teacherName || currentData.teacherName || '';
+    currentData.teacherName = teacherNameInput?.value || '';
     localStorage.setItem('teacherName', currentData.teacherName);
-    
-    // Synchroniser avec le champ arabe si nécessaire
-    const teacherNameArabic = document.getElementById('teacherNameArabic');
-    if (teacherNameArabic) teacherNameArabic.value = currentData.teacherName;
-    
-    // Remplir le commentaire
-    const commentField = isArabicSubject ? document.getElementById('teacherCommentArabic') : document.getElementById('teacherComment');
-    if (commentField) commentField.value = data.teacherComment || '';
+    const tcAr = document.getElementById('teacherNameArabic');
+    if (tcAr) tcAr.value = currentData.teacherName;
+
+    const commentEl = document.getElementById(isArabic ? 'teacherCommentArabic' : 'teacherComment');
+    if (commentEl) commentEl.value = data.teacherComment || '';
     currentData.teacherComment = data.teacherComment;
-    
-    // Remplir les évaluations de communication
-    currentData.communicationEvaluation = data.communicationEvaluation || ['', '', '', '', ''];
-    const commSelector = isArabicSubject ? "#communicationTableArabic tbody select" : "#communicationTable tbody select";
-    document.querySelectorAll(commSelector).forEach((s, i) => {
-        s.value = currentData.communicationEvaluation[i] || '';
-    });
-    
-    // Restaurer les unités sélectionnées
+
+    currentData.communicationEvaluation = data.communicationEvaluation || ['','','','',''];
+    const commSel = isArabic ? '#communicationTableArabic tbody select' : '#communicationTable tbody select';
+    document.querySelectorAll(commSel).forEach((s,i) => s.value = currentData.communicationEvaluation[i]||'');
+
     if (data.unitsSem1) {
         currentData.unitsSem1 = data.unitsSem1;
-        const unitsSem1Field = isArabicSubject ? document.getElementById('unitsSem1SelectorArabic') : document.getElementById('unitsSem1Selector');
-        if (unitsSem1Field) unitsSem1Field.value = data.unitsSem1;
+        const u1 = document.getElementById(isArabic?'unitsSem1SelectorArabic':'unitsSem1Selector');
+        if (u1) u1.value = data.unitsSem1;
     }
     if (data.unitsSem2) {
         currentData.unitsSem2 = data.unitsSem2;
-        const unitsSem2Field = isArabicSubject ? document.getElementById('unitsSem2SelectorArabic') : document.getElementById('unitsSem2Selector');
-        if (unitsSem2Field) unitsSem2Field.value = data.unitsSem2;
+        const u2 = document.getElementById(isArabic?'unitsSem2SelectorArabic':'unitsSem2Selector');
+        if (u2) u2.value = data.unitsSem2;
     }
-    
-    // Supporte PEI et DP avec critères A-D
+
     currentData.criteriaValues = data.criteriaValues ? JSON.parse(JSON.stringify(data.criteriaValues)) : {A:{},B:{},C:{},D:{}};
-    
-    // S'assurer que chaque critère a les tableaux d'unités
-    const isDPClass = currentData.classSelected === 'DP1' || currentData.classSelected === 'DP2';
-    // CORRECTION: Utiliser A-D pour toutes les classes (PEI et DP)
-    const criteriaKeys = ['A', 'B', 'C', 'D'];
-    criteriaKeys.forEach(key => {
-        if (!currentData.criteriaValues[key]) {
-            currentData.criteriaValues[key] = {sem1: null, sem2: null, finalLevel: null, sem1Units: [], sem2Units: []};
-        }
-        if (!currentData.criteriaValues[key].sem1Units) {
-            currentData.criteriaValues[key].sem1Units = [];
-        }
-        if (!currentData.criteriaValues[key].sem2Units) {
-            currentData.criteriaValues[key].sem2Units = [];
-        }
+    ['A','B','C','D'].forEach(k => {
+        if (!currentData.criteriaValues[k]) currentData.criteriaValues[k] = {sem1:null,sem2:null,finalLevel:null,sem1Units:[],sem2Units:[]};
+        if (!currentData.criteriaValues[k].sem1Units) currentData.criteriaValues[k].sem1Units=[];
+        if (!currentData.criteriaValues[k].sem2Units) currentData.criteriaValues[k].sem2Units=[];
     });
-    
-    // Reconstruire le tableau avec les bonnes colonnes
-    if (isArabicSubject) {
-        rebuildCriteriaTableArabic();
-    } else {
-        rebuildCriteriaTable();
-    }
-    
+
+    if (isArabic) rebuildCriteriaTableArabic(); else rebuildCriteriaTable();
     currentData.studentBirthdate = data.studentBirthdate || currentData.studentBirthdate || '';
-    studentBirthdateInput.value = currentData.studentBirthdate;
-    
+    if (studentBirthdateInput) studentBirthdateInput.value = currentData.studentBirthdate;
     calculateTotals();
 }
 
-// Soumission du formulaire
+// =====================================================
+// SUBMIT FORM
+// =====================================================
 async function submitForm() {
-    // Synchroniser le commentaire et le nom enseignant depuis le DOM avant validation
-    const isArabicSubject = currentData.subjectSelected === 'Acquisition de langue (اللغة العربية)';
-    const commentEl = isArabicSubject ? document.getElementById('teacherCommentArabic') : document.getElementById('teacherComment');
-    const teacherNameEl = isArabicSubject ? document.getElementById('teacherNameArabic') : document.getElementById('teacherName');
+    const isArabic = currentData.subjectSelected === 'Acquisition de langue (اللغة العربية)';
+    const commentEl    = document.getElementById(isArabic ? 'teacherCommentArabic' : 'teacherComment');
+    const teacherNameEl = document.getElementById(isArabic ? 'teacherNameArabic' : 'teacherName');
     if (commentEl) currentData.teacherComment = commentEl.value;
     if (teacherNameEl) {
         currentData.teacherName = teacherNameEl.value.trim();
@@ -1556,152 +952,90 @@ async function submitForm() {
     }
 
     if (!currentData.teacherName || !currentData.classSelected || !currentData.studentSelected || !currentData.subjectSelected) {
-        alert("Veuillez remplir tous les champs requis.");
+        showToast('Veuillez remplir tous les champs requis (nom enseignant, classe, élève, matière)', 'error', 4000);
         return;
     }
-    
-    submitButton.disabled = true;
-    submitButton.textContent = "Envoi en cours...";
-    // Désactiver aussi le bouton arabe si présent
-    const submitBtnArabic = document.getElementById('submitButtonArabic');
-    if (submitBtnArabic) { submitBtnArabic.disabled = true; submitBtnArabic.textContent = 'جارٍ الإرسال...'; }
-    
+
+    const btnEl = document.getElementById(isArabic ? 'submitButtonArabic' : 'submitButton');
+    const btnElOther = document.getElementById(isArabic ? 'submitButton' : 'submitButtonArabic');
+    if (btnEl) { btnEl.disabled = true; btnEl.textContent = '⏳ Enregistrement...'; }
+    if (btnElOther) { btnElOther.disabled = true; }
+
     try {
-        // Synchroniser TOUS les champs du formulaire depuis le DOM (garantit cohérence)
         syncFormDataFromDOM();
         handleCommunicationChange();
-        
-        // Inclure le semestre courant dans les données
-        const contributionData = { ...currentData, contributionId: currentContributionId, semester: currentSemester };
 
-        // ---- Isolation des données par semestre ----
-        // Le serveur nettoie aussi, mais on le fait ici pour avoir finalLevel correct.
-        // En S2 on extrait aussi s1CriteriaValues pour mettre à jour le doc S1 (feature 2).
-        const cleanedCriteriaValues = {};
-        const s1CriteriaValues = currentSemester === 2 ? {} : null;
+        const payload = { ...currentData, contributionId: currentContributionId, semester: currentSemester };
+        const cleanedCv = {};
+        const s1cv = currentSemester === 2 ? {} : null;
 
-        for (const key of ['A', 'B', 'C', 'D']) {
-            const src = contributionData.criteriaValues?.[key] || {};
+        for (const k of ['A','B','C','D']) {
+            const src = payload.criteriaValues?.[k] || {};
             if (currentSemester === 1) {
-                cleanedCriteriaValues[key] = {
-                    sem1:       src.sem1      ?? null,
-                    sem1Units:  src.sem1Units ?? [],
-                    sem2:       null,
-                    sem2Units:  [],
-                    finalLevel: src.sem1      ?? null
-                };
+                cleanedCv[k] = { sem1: src.sem1??null, sem1Units: src.sem1Units??[], sem2: null, sem2Units: [], finalLevel: src.sem1??null };
             } else {
-                // Notes S1 modifiées en mode S2 → à envoyer séparément
-                s1CriteriaValues[key] = {
-                    sem1:       src.sem1      ?? null,
-                    sem1Units:  src.sem1Units ?? [],
-                    sem2:       null,
-                    sem2Units:  [],
-                    finalLevel: src.sem1      ?? null
-                };
-                // Notes S2 propres
-                const s1v = src.sem1 ?? null;
-                const s2v = src.sem2 ?? null;
-                let fl = null;
-                if (s1v !== null && s2v !== null) fl = Math.round((parseFloat(s1v)+parseFloat(s2v))/2);
-                else if (s2v !== null) fl = s2v;
-                else if (s1v !== null) fl = s1v;
-                cleanedCriteriaValues[key] = {
-                    sem1:       null,
-                    sem1Units:  [],
-                    sem2:       s2v,
-                    sem2Units:  src.sem2Units ?? [],
-                    finalLevel: fl
-                };
+                s1cv[k] = { sem1: src.sem1??null, sem1Units: src.sem1Units??[], sem2: null, sem2Units: [], finalLevel: src.sem1??null };
+                const s1v=src.sem1??null, s2v=src.sem2??null;
+                let fl=null;
+                if (s1v!==null&&s2v!==null) fl=Math.round((parseFloat(s1v)+parseFloat(s2v))/2);
+                else if (s2v!==null) fl=s2v; else if (s1v!==null) fl=s1v;
+                cleanedCv[k] = { sem1: null, sem1Units: [], sem2: s2v, sem2Units: src.sem2Units??[], finalLevel: fl };
             }
         }
-        contributionData.criteriaValues = cleanedCriteriaValues;
-        // Envoyer les notes S1 si modifiées depuis le formulaire S2
-        if (s1CriteriaValues) contributionData.s1CriteriaValues = s1CriteriaValues;
+        payload.criteriaValues = cleanedCv;
+        if (s1cv) payload.s1CriteriaValues = s1cv;
 
-        console.log('📤 Données à sauvegarder (S' + currentSemester + '):', contributionData);
-        console.log('📊 ATL Communication:', contributionData.communicationEvaluation);
-        
-        const result = await apiCall('saveContribution', contributionData);
-        
+        const result = await apiCall('saveContribution', payload);
+
         if (result.success) {
-            // Confirmation d'enregistrement en base de données
-            alert(`✅ Contribution enregistrée avec succès dans la base de données !\n\n(ID: ${result.data})`);
             currentContributionId = result.data;
-            
-            // Mettre à jour les indicateurs de matières complétées
-            if (currentData.studentSelected) {
-                // Marquer cette matière comme complétée
-                if (!completedSubjects[currentData.studentSelected]) {
-                    completedSubjects[currentData.studentSelected] = {};
-                }
-                completedSubjects[currentData.studentSelected][currentData.subjectSelected] = true;
-                
-                // Mettre à jour visuellement la carte
-                const cards = document.querySelectorAll('.subject-card');
-                cards.forEach(card => {
-                    const cardTitle = card.querySelector('h3')?.textContent;
-                    if (cardTitle === currentData.subjectSelected) {
-                        card.classList.add('completed');
-                    }
-                });
-                
-                // Récupérer aussi les contributions pour afficher
-                fetchStudentContributions(currentData.studentSelected);
-            }
+            showToast('✅ Contribution enregistrée avec succès !', 'success');
+
+            // Mark subject card completed
+            if (!completedSubjects[currentData.studentSelected]) completedSubjects[currentData.studentSelected]={};
+            completedSubjects[currentData.studentSelected][currentData.subjectSelected] = true;
+            document.querySelector(`.subject-card[data-subject="${CSS.escape(currentData.subjectSelected)}"]`)?.classList.add('completed');
         } else {
             throw new Error(result.error || 'Erreur inconnue');
         }
-    } catch (error) {
-        console.error('Erreur soumission:', error);
-        alert(`Erreur: ${error.message || 'Erreur lors de la sauvegarde'}`);
+    } catch(e) {
+        showToast(`Erreur: ${e.message || 'Erreur sauvegarde'}`, 'error');
     } finally {
-        submitButton.disabled = false;
-        submitButton.textContent = "Soumettre / Mettre à jour";
-        const submitBtnArabicFinal = document.getElementById('submitButtonArabic');
-        if (submitBtnArabicFinal) { submitBtnArabicFinal.disabled = false; submitBtnArabicFinal.textContent = 'إرسال / تحديث'; }
+        if (btnEl) { btnEl.disabled = false; btnEl.textContent = '✅ Soumettre / Mettre à jour'; }
+        if (btnElOther) { btnElOther.disabled = false; btnElOther.textContent = '✅ إرسال / تحديث'; }
     }
 }
 
-// Affichage des contributions
+// =====================================================
+// SHOW STUDENT CONTRIBUTIONS
+// =====================================================
 async function showStudentData() {
-    const studentSelected = currentData.studentSelected;
-    if (studentSelected) {
-        contributionEntrySections.style.display = "none";
-        dataContainer.style.display = "block";
-        await fetchStudentContributions(studentSelected);
-    } else {
-        alert("Veuillez sélectionner un élève !");
-    }
+    if (!currentData.studentSelected) { showToast('Sélectionnez un élève', 'warning'); return; }
+    contributionEntrySections.style.display = 'none';
+    dataContainer.style.display = 'block';
+    await fetchStudentContributions(currentData.studentSelected);
 }
 
 async function fetchStudentContributions(student) {
     if (!student) return;
-    
     try {
-        const response = await apiCall('fetchStudentContributions', { 
+        const resp = await apiCall('fetchStudentContributions', {
             studentSelected: student,
             classSelected: currentData.classSelected,
             sectionSelected: currentData.sectionSelected,
             semester: currentSemester
         });
-        const contributions = response?.contributions || [];
-        
-        dataContainer.innerHTML = '<h3>Contributions Enregistrées</h3>';
-        
-        if (contributions && contributions.length > 0) {
-            contributions.sort((a, b) => (a.subjectSelected || "").localeCompare(b.subjectSelected || ""));
-            contributions.forEach(c => {
-                dataContainer.appendChild(createContributionElement(c));
-            });
+        const contribs = resp?.contributions || [];
+        dataContainer.innerHTML = '<h3 style="margin:0 0 14px;font-size:1em;color:var(--gray-700);">📋 Contributions enregistrées</h3>';
+        if (contribs.length > 0) {
+            contribs.sort((a,b)=>(a.subjectSelected||'').localeCompare(b.subjectSelected||''));
+            contribs.forEach(c => dataContainer.appendChild(createContributionElement(c)));
         } else {
-            dataContainer.innerHTML += '<p>Aucune contribution trouvée pour cet élève.</p>';
+            dataContainer.innerHTML += '<p style="color:var(--gray-500);text-align:center;padding:20px;">Aucune contribution trouvée.</p>';
         }
-        
-        dataContainer.style.display = "block";
-    } catch (error) {
-        console.error('Erreur récupération contributions:', error);
-        alert('Erreur lors de la récupération des contributions.');
+        dataContainer.style.display = 'block';
+    } catch(e) {
+        showToast('Erreur chargement contributions', 'error');
     }
 }
 
@@ -1709,328 +1043,229 @@ function createContributionElement(c) {
     const div = document.createElement('div');
     div.className = 'contribution';
     const color = getSubjectColor(c.subjectSelected);
-    
+    const icon  = subjectIcons[c.subjectSelected] || '📖';
     div.innerHTML = `
-        <div class="contribution-header" style="background-color:${color};">
-            <h3>${c.subjectSelected || 'N/A'}</h3>
+        <div class="contribution-header" style="background:${color};">
+            <h3>${icon} ${c.subjectSelected||'N/A'}</h3>
             <div class="contribution-buttons">
-                <button onclick="toggleContributionDetails(this)" data-contribution-id="${c._id}" title="Afficher/Masquer Détails">Afficher</button>
-                <button onclick="editContribution('${c._id}')" title="Modifier">Modifier</button>
-                <button onclick="deleteContribution('${c._id}')" title="Supprimer">Supprimer</button>
+                <button onclick="toggleContributionDetails(this)" data-contribution-id="${c._id}">Afficher</button>
+                <button onclick="editContribution('${c._id}')">Modifier</button>
+                <button onclick="deleteContribution('${c._id}')">Supprimer</button>
             </div>
         </div>
-        <div class="contribution-content" id="content-${c._id}" style="display: none;">
-            Chargement...
-        </div>
+        <div class="contribution-content" id="content-${c._id}" style="display:none;">Chargement...</div>
     `;
-    
     return div;
 }
 
-async function toggleContributionDetails(button) {
-    const id = button.getAttribute('data-contribution-id');
+async function toggleContributionDetails(btn) {
+    const id      = btn.getAttribute('data-contribution-id');
     const content = document.getElementById(`content-${id}`);
     if (!content) return;
-    
-    const isHidden = content.style.display === 'none';
-    content.style.display = isHidden ? 'block' : 'none';
-    button.textContent = isHidden ? 'Masquer' : 'Afficher';
-    
-    if (isHidden && content.innerHTML === 'Chargement...') {
+    const hidden = content.style.display === 'none';
+    content.style.display = hidden ? 'block' : 'none';
+    btn.textContent = hidden ? 'Masquer' : 'Afficher';
+    if (hidden && content.innerHTML === 'Chargement...') {
         try {
             const data = await apiCall('fetchContribution', { contributionId: id });
-            if (data) {
-                renderContributionDetails(content, data);
-            } else {
-                content.innerHTML = '<p>Erreur chargement des détails.</p>';
-            }
-        } catch (error) {
-            console.error('Erreur chargement détails:', error);
-            content.innerHTML = '<p>Erreur chargement des détails.</p>';
-        }
+            if (data) renderContributionDetails(content, data);
+            else content.innerHTML = '<p>Erreur chargement.</p>';
+        } catch(e) { content.innerHTML = '<p>Erreur chargement.</p>'; }
     }
 }
 
-function renderContributionDetails(element, data) {
+function renderContributionDetails(el, data) {
     const commHTML = createCommunicationTableHTML(data.communicationEvaluation);
     const critHTML = createCriteriaTableHTML(data.criteriaValues, data.subjectSelected);
-    
-    element.innerHTML = `
-        <p><strong>Enseignant:</strong> ${data.teacherName || '-'}</p>
-        <h4>Compétences</h4>
-        ${commHTML}
-        <h4>Critères (${data.subjectSelected || 'N/A'})</h4>
-        ${critHTML}
-        <h4>Commentaires</h4>
-        <p>${data.teacherComment || '-'}</p>
-        <p><small>Dernière modification: ${new Date(data.timestamp || Date.now()).toLocaleString('fr-FR')}</small></p>
+    el.innerHTML = `
+        <p><strong>Enseignant :</strong> ${data.teacherName||'-'}</p>
+        <h4 style="margin:10px 0 6px;font-size:.9em;">Compétences ATL</h4>${commHTML}
+        <h4 style="margin:10px 0 6px;font-size:.9em;">Critères</h4>${critHTML}
+        <h4 style="margin:10px 0 6px;font-size:.9em;">Commentaires</h4>
+        <p style="font-size:.88em;">${data.teacherComment||'-'}</p>
+        <p><small style="color:var(--gray-500);">Dernière modification : ${new Date(data.timestamp||Date.now()).toLocaleString('fr-FR')}</small></p>
     `;
 }
 
-function createCommunicationTableHTML(evals = []) {
-    return `
-        <table class="details-table">
-            <thead>
-                <tr><th>Comm</th><th>Collab</th><th>Auto</th><th>Rech</th><th>Refl</th></tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td>${evals[0]||'-'}</td>
-                    <td>${evals[1]||'-'}</td>
-                    <td>${evals[2]||'-'}</td>
-                    <td>${evals[3]||'-'}</td>
-                    <td>${evals[4]||'-'}</td>
-                </tr>
-            </tbody>
-        </table>
-    `;
+function createCommunicationTableHTML(evals=[]) {
+    return `<table class="details-table"><thead><tr><th>Comm</th><th>Collab</th><th>Auto</th><th>Rech</th><th>Réfl</th></tr></thead>
+    <tbody><tr>${[0,1,2,3,4].map(i=>`<td>${evals[i]||'-'}</td>`).join('')}</tr></tbody></table>`;
 }
 
-function createCriteriaTableHTML(criteria = {}, subject) {
+function createCriteriaTableHTML(criteria={}, subject) {
     const labels = criteriaBySubject[subject] || {};
-    let total = 0;
-    // Correction: utiliser currentData.classSelected pour déterminer DP
-    const _isDPClass = currentData.classSelected === 'DP1' || currentData.classSelected === 'DP2';
-    
-    const keys = ['A','B','C','D']; // Utiliser A-D pour toutes les classes
-    
-    const rows = keys.map(k => {
-        const c = criteria[k] || {};
-        const final = c.finalLevel ?? '-';
-        if (final !== '-' && !isNaN(final)) total += parseFloat(final);
-        return `<tr><td>${labels[k]||`Crit. ${k}`}</td><td>${c.sem1 ?? '-'}</td><td>${c.sem2 ?? '-'}</td><td>${final}</td></tr>`;
+    const isDP = currentData.classSelected === 'DP1' || currentData.classSelected === 'DP2';
+    let total=0;
+    const rows = ['A','B','C','D'].map(k=>{
+        const c=criteria[k]||{};
+        const f=c.finalLevel??'-';
+        if(f!=='-'&&!isNaN(f)) total+=parseFloat(f);
+        return `<tr><td style="text-align:left;font-size:.8em;">${labels[k]||`Crit. ${k}`}</td><td>${c.sem1??'-'}</td><td>${c.sem2??'-'}</td><td><strong>${f}</strong></td></tr>`;
     }).join('');
-    
-    let note = 0;
-    const maxNote = _isDPClass ? 7 : 8;
-    if (total > 0) {
-        note = Math.round(total/4);
-        if (note < 1) note = 1;
-        if (note > maxNote) note = maxNote;
-    }
-    
-    const maxThreshold = _isDPClass ? 28 : 32;
-    
-    return `
-        <table class="details-table">
-            <thead>
-                <tr><th>Critère</th><th>S1</th><th>S2</th><th>Final</th></tr>
-            </thead>
-            <tbody>${rows}</tbody>
-            <tfoot>
-                <tr><td colspan="3">Seuil /${maxThreshold}:</td><td><strong>${total}</strong></td></tr>
-                <tr><td colspan="3">Note /${maxNote}:</td><td><strong>${note}</strong></td></tr>
-            </tfoot>
-        </table>
-    `;
+    const maxN=isDP?7:8, maxT=isDP?28:32;
+    const note=total>0?Math.max(1,Math.min(maxN,Math.round(total/4))):0;
+    return `<table class="details-table"><thead><tr><th>Critère</th><th>S1</th><th>S2</th><th>Final</th></tr></thead>
+    <tbody>${rows}</tbody><tfoot><tr><td colspan="3">Seuil /${maxT}:</td><td><strong>${total}</strong></td></tr>
+    <tr><td colspan="3">Note /${maxN}:</td><td><strong>${note}</strong></td></tr></tfoot></table>`;
 }
 
-// Édition et suppression
-async function editContribution(contributionId) {
+// =====================================================
+// EDIT / DELETE CONTRIBUTION
+// =====================================================
+async function editContribution(id) {
     try {
-        const dataFromServer = await apiCall('fetchContribution', { contributionId });
-        
-        if (dataFromServer) {
-            contributionEntrySections.style.display = "block";
-            dataContainer.style.display = "none";
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-            
-            currentContributionId = contributionId;
-            
-            fillFormWithData(dataFromServer);
-            
-            // Forcer l'utilisation de la photo locale
-            const studentName = dataFromServer.studentSelected;
-            const localPhotoUrl = studentData[studentName]?.photo || null;
-            currentData.studentPhoto = localPhotoUrl;
-            
-            const photoPreview = document.getElementById('studentPhotoPreview');
-            if (localPhotoUrl) {
-                photoPreview.src = localPhotoUrl;
-                photoPreview.style.display = 'block';
-                photoPreview.onerror = () => {
-                    console.error(`Erreur chargement image edit: ${localPhotoUrl}`);
-                    photoPreview.style.display = 'none';
-                };
-            } else {
-                photoPreview.style.display = 'none';
-                photoPreview.src = '#';
-            }
-            
-            // Mettre à jour les sélecteurs
-            classSelector.value = dataFromServer.classSelected || '';
-            currentData.classSelected = dataFromServer.classSelected;
-            populateStudents();
-            
-            setTimeout(() => {
-                studentSelector.value = studentName || '';
-                currentData.studentSelected = studentName;
-                populateSubjects();
-                
-                setTimeout(() => {
-                    // Pas besoin de sélectionner la matière car on utilise des cartes maintenant
-                    currentData.subjectSelected = dataFromServer.subjectSelected;
-                    // Déclencher le clic sur la carte de matière correspondante
-                    if (dataFromServer.subjectSelected) {
-                        const cards = document.querySelectorAll('.subject-card');
-                        cards.forEach(card => {
-                            if (card.dataset.subject === dataFromServer.subjectSelected) {
-                                card.click();
-                            }
-                        });
-                    }
-                }, 50);
-            }, 50);
-        } else {
-            alert("Erreur lors de la récupération des données de la contribution à modifier.");
-            resetOnSubjectChange();
-        }
-    } catch (error) {
-        console.error('Erreur édition contribution:', error);
-        alert("Erreur lors de la récupération des données de la contribution à modifier.");
+        const data = await apiCall('fetchContribution', { contributionId: id });
+        if (!data) { showToast('Contribution introuvable', 'error'); return; }
+        contributionEntrySections.style.display = 'block';
+        dataContainer.style.display = 'none';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        currentContributionId = id;
+        currentData.subjectSelected = data.subjectSelected;
+        const isArabic = data.subjectSelected === 'Acquisition de langue (اللغة العربية)';
+        document.querySelectorAll('.french-section').forEach(s=>s.style.display=isArabic?'none':'block');
+        document.querySelectorAll('.arabic-section').forEach(s=>s.style.display=isArabic?'block':'none');
+        fillFormWithData(data);
+        const photoEl = document.getElementById('studentPhotoPreview');
+        const photoUrl = studentData[data.studentSelected]?.photo||null;
+        currentData.studentPhoto = photoUrl;
+        if (photoUrl && photoEl) { photoEl.src=photoUrl; photoEl.style.display='block'; }
+        if (currentSemester === 2) applySemester2Mode();
+    } catch(e) {
+        showToast('Erreur lors de l\'édition', 'error');
     }
 }
 
-async function deleteContribution(contributionId) {
-    if (confirm(`Êtes-vous sûr de vouloir supprimer la contribution ID: ${contributionId} ? Cette action est irréversible.`)) {
-        try {
-            const result = await apiCall('deleteContribution', { contributionId });
-            
-            if (result.success) {
-                alert("Contribution supprimée !");
-                if (currentData.studentSelected) {
-                    fetchStudentContributions(currentData.studentSelected);
-                }
-                if (currentContributionId === contributionId) {
-                    resetOnSubjectChange();
-                }
-            } else {
-                throw new Error(result.error || 'Erreur suppression');
-            }
-        } catch (error) {
-            console.error('Erreur suppression:', error);
-            alert(`Erreur Suppression: ${error.message || 'Inconnue'}`);
-        }
-    }
+async function deleteContribution(id) {
+    if (!confirm(`Supprimer cette contribution ? Cette action est irréversible.`)) return;
+    try {
+        const result = await apiCall('deleteContribution', { contributionId: id });
+        if (result.success) {
+            showToast('Contribution supprimée', 'success');
+            fetchStudentContributions(currentData.studentSelected);
+            if (currentContributionId === id) resetOnSubjectChange();
+        } else throw new Error(result.error||'Erreur suppression');
+    } catch(e) { showToast(`Erreur: ${e.message}`, 'error'); }
 }
 
-// Génération de documents
+// =====================================================
+// GENERATE WORD
+// =====================================================
 async function generateAllWordsInSection() {
-    const section = currentData.sectionSelected;
-    const classe = currentData.classSelected;
-
-    if (!section || !classe) {
-        alert("Veuillez d'abord sélectionner une section et une classe.");
-        return;
+    const { sectionSelected, classSelected } = currentData;
+    if (!sectionSelected || !classSelected) {
+        showToast('Sélectionnez d\'abord une section et une classe', 'warning'); return;
     }
-
-    const studentList = studentsByClassAndSection[section]?.[classe] || [];
-    if (studentList.length === 0) {
-        alert(`Aucun élève trouvé pour la classe ${classe} dans la section ${section}.`);
-        return;
-    }
-
-    const confirmGeneration = confirm(`Vous allez générer ${studentList.length} livret(s) Word individuellement pour la classe ${classe}.\nChaque livret déclenchera un téléchargement séparé.\nVoulez-vous continuer ?`);
-    if (!confirmGeneration) {
-        return;
-    }
+    const list = studentsByClassAndSection[sectionSelected]?.[classSelected] || [];
+    if (!list.length) { showToast(`Aucun élève pour ${classSelected}`, 'warning'); return; }
+    if (!confirm(`Générer ${list.length} livret(s) Word pour ${classSelected} ?\n(${list.length} téléchargements séparés)`)) return;
 
     progressBarContainer.style.display = 'block';
-    progressText.textContent = `Préparation... (0/${studentList.length})`;
-    progressBar.style.width = '0%';
     document.getElementById('generateWordButton').disabled = true;
-
-    let successCount = 0;
-    let errorCount = 0;
-
-    for (let i = 0; i < studentList.length; i++) {
-        const studentName = studentList[i];
-        const photoUrl = studentData[studentName]?.photo || null;
-
-        const currentProgress = Math.round((i / studentList.length) * 100);
-        progressText.textContent = `Génération: ${studentName} (${i + 1}/${studentList.length}) - ${currentProgress}%`;
-        progressBar.style.width = currentProgress + '%';
-
+    let ok=0, err=0;
+    for (let i=0; i<list.length; i++) {
+        const name = list[i];
+        const pct  = Math.round((i/list.length)*100);
+        progressText.textContent = `${name} (${i+1}/${list.length}) — ${pct}%`;
+        progressBar.style.width  = pct+'%';
         try {
-            const result = await downloadWordDocument({
-                studentSelected: studentName,
-                classSelected: classe,
-                sectionSelected: section,
-                studentPhotoUrl: photoUrl,
+            await downloadWordDocument({
+                studentSelected: name,
+                classSelected, sectionSelected,
+                studentPhotoUrl: studentData[name]?.photo||null,
                 semester: currentSemester
             });
-
-            if (result.success) {
-                successCount++;
-            } else {
-                throw new Error(result.error || 'Erreur génération');
-            }
-        } catch (error) {
-            console.error(`Erreur génération pour ${studentName}:`, error);
-            alert(`Erreur génération Word pour ${studentName}: ${error.message}`);
-            errorCount++;
+            ok++;
+        } catch(e) {
+            showToast(`Erreur Word pour ${name}: ${e.message}`, 'error');
+            err++;
         }
-
-        const progressAfter = Math.round(((i + 1) / studentList.length) * 100);
-        progressBar.style.width = progressAfter + '%';
-        progressText.textContent = `Terminé: ${studentName} (${i + 1}/${studentList.length}) - ${progressAfter}%`;
-
-        if (i < studentList.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-        }
+        if (i < list.length-1) await new Promise(r=>setTimeout(r,1000));
     }
-
     progressBar.style.width = '100%';
-    progressText.textContent = `Terminé ! (${successCount} succès, ${errorCount} erreurs)`;
-    setTimeout(() => {
-        progressBarContainer.style.display = 'none';
-        progressBar.style.width = '0%';
-        progressText.textContent = '0%';
-    }, 3000);
+    progressText.textContent = `Terminé — ${ok} succès, ${err} erreur(s)`;
+    setTimeout(()=>{ progressBarContainer.style.display='none'; progressBar.style.width='0'; }, 3500);
     document.getElementById('generateWordButton').disabled = false;
-
-    console.log(`Génération terminée. Succès: ${successCount}, Erreurs: ${errorCount}`);
+    showToast(`Génération terminée: ${ok} livrets créés`, ok>0?'success':'warning');
 }
 
-function handleDownloadLink(data) {
-    if (!data || !data.filePath || !data.fileName) {
-        console.error("Données de téléchargement invalides", data);
-        return;
-    }
-
-    const link = document.createElement('a');
-    link.href = data.filePath.startsWith('/') ? data.filePath : '/' + data.filePath;
-    link.download = data.fileName;
-    document.body.appendChild(link);
-
-    try {
-        link.click();
-        console.log(`Téléchargement déclenché: ${data.fileName}`);
-    } catch (e) {
-        console.error("Erreur téléchargement:", e);
-        alert(`Impossible de lancer le téléchargement pour ${data.fileName}.`);
-    }
-
-    setTimeout(() => {
-        if (document.body.contains(link)) {
-            document.body.removeChild(link);
-        }
-    }, 100);
-}
-
-// Génération Excel (placeholder)
 function generateExcel() {
-    alert("Fonctionnalité Excel en cours d'implémentation.");
+    showToast('Export Excel en cours d\'implémentation', 'info');
 }
 
-// Fonctions de réinitialisation
+// =====================================================
+// NAVIGATION BACK FUNCTIONS
+// =====================================================
+function goToHome() {
+    resetOnSectionChange();
+    ['step0','step0b','step1','step2','step3'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = id==='step0' ? 'block' : 'none';
+    });
+    contributionEntrySections.style.display = 'none';
+    dataContainer.style.display = 'none';
+    studentInfoContainer.style.display = 'none';
+    currentSemester = 1;
+    updateSemesterUI();
+    // Reset semester button styles
+    const s1=document.getElementById('sem1Btn'), s2=document.getElementById('sem2Btn');
+    if(s1){s1.style.opacity='1';s1.style.boxShadow='none';}
+    if(s2){s2.style.opacity='1';s2.style.boxShadow='none';}
+    const badge=document.getElementById('semesterBadge'); if(badge) badge.style.display='none';
+}
+
+function goBackToSemester() {
+    document.getElementById('step0b').style.display = 'none';
+    document.getElementById('step0').style.display  = 'block';
+    const s1=document.getElementById('sem1Btn'), s2=document.getElementById('sem2Btn');
+    if(s1){s1.style.opacity='1';s1.style.boxShadow='none';}
+    if(s2){s2.style.opacity='1';s2.style.boxShadow='none';}
+}
+
+function goBackToSection() {
+    document.getElementById('step1').style.display  = 'none';
+    document.getElementById('step3').style.display  = 'none';
+    document.getElementById('step0').style.display  = 'block';
+    document.getElementById('step0b').style.display = 'block';
+    studentInfoContainer.style.display = 'none';
+    contributionEntrySections.style.display = 'none';
+    dataContainer.style.display = 'none';
+    currentData.classSelected = null;
+    currentData.studentSelected = null;
+    currentData.subjectSelected = null;
+    resetFormData();
+}
+
+function goBackToClass() {
+    document.getElementById('step3').style.display  = 'none';
+    document.getElementById('step1').style.display  = 'block';
+    studentInfoContainer.style.display = 'none';
+    contributionEntrySections.style.display = 'none';
+    dataContainer.style.display = 'none';
+    currentData.studentSelected = null;
+    currentData.subjectSelected = null;
+    resetFormData();
+}
+
+function goBackToStudent() {
+    contributionEntrySections.style.display = 'none';
+    dataContainer.style.display = 'none';
+    document.getElementById('step2').style.display = 'none';
+    studentInfoContainer.style.display = 'none';
+    document.getElementById('step3').style.display = 'block';
+    currentData.subjectSelected = null;
+    resetFormData();
+}
+
+// =====================================================
+// RESET FUNCTIONS
+// =====================================================
 function resetOnSectionChange() {
-    classSelector.value = '';
-    studentSelector.innerHTML = "<option value=''>-- Sélectionnez un élève --</option>";
-    document.getElementById('step3').style.display = "none";
-    studentInfoContainer.style.display = "none";
-    contributionEntrySections.style.display = "none";
-    dataContainer.style.display = "none";
+    document.getElementById('step3').style.display = 'none';
+    studentInfoContainer.style.display = 'none';
+    contributionEntrySections.style.display = 'none';
+    dataContainer.style.display = 'none';
+    const classGrid = document.getElementById('classGrid'); if(classGrid) classGrid.innerHTML='';
+    const studentGrid = document.getElementById('studentGrid'); if(studentGrid) studentGrid.innerHTML='';
     currentData.classSelected = null;
     currentData.studentSelected = null;
     currentData.subjectSelected = null;
@@ -2038,136 +1273,92 @@ function resetOnSectionChange() {
 }
 
 function resetOnClassChange() {
-    studentSelector.innerHTML = "<option value=''>-- Sélectionnez un élève --</option>";
-    document.getElementById('step3').style.display = "none";
-    currentData.classSelected = classSelector.value;
+    document.getElementById('step3').style.display = 'none';
     resetOnStudentChange();
 }
 
 function resetOnStudentChange() {
-    // Réinitialiser le verrou populateSubjects pour permettre un nouvel appel
     _isPopulatingSubjects = false;
-    // Réinitialiser la grille de cartes
-    const cards = document.querySelectorAll('.subject-card');
-    cards.forEach(card => card.classList.remove('selected'));
-    const subjectsGrid = document.getElementById("subjectsGrid");
-    if (subjectsGrid) subjectsGrid.innerHTML = "";
-    document.getElementById('step2').style.display = "none";
-    studentInfoContainer.style.display = "none";
-    currentData.studentSelected = studentSelector.value;
+    if (subjectsGrid) subjectsGrid.innerHTML = '';
+    document.getElementById('step2').style.display = 'none';
+    studentInfoContainer.style.display = 'none';
+    currentData.studentSelected = null;
     resetOnSubjectChange();
-    dataContainer.style.display = "none";
+    dataContainer.style.display = 'none';
 }
 
 function resetOnSubjectChange() {
-    contributionEntrySections.style.display = "none";
-    // currentData.subjectSelected est déjà mis à jour lors du clic sur la carte
+    contributionEntrySections.style.display = 'none';
     resetFormData();
 }
 
 function resetFormData() {
     resetInputTables();
     currentData.teacherComment = null;
-    currentData.communicationEvaluation = ['', '', '', '', ''];
+    currentData.communicationEvaluation = ['','','','',''];
     currentData.unitsSem1 = 1;
     currentData.unitsSem2 = 1;
-    
-    // Réinitialiser les sélecteurs d'unités
-    const u1 = document.getElementById('unitsSem1Selector');
-    const u2 = document.getElementById('unitsSem2Selector');
-    if (u1) u1.value = '1';
-    if (u2) u2.value = '1';
-    const u1ar = document.getElementById('unitsSem1SelectorArabic');
-    const u2ar = document.getElementById('unitsSem2SelectorArabic');
-    if (u1ar) u1ar.value = '1';
-    if (u2ar) u2ar.value = '1';
-    
-    // Utiliser A-D pour toutes les classes (PEI et DP)
+    ['unitsSem1Selector','unitsSem2Selector','unitsSem1SelectorArabic','unitsSem2SelectorArabic'].forEach(id => {
+        const el = document.getElementById(id); if(el) el.value='1';
+    });
     currentData.criteriaValues = {
-        A: {sem1: null, sem2: null, finalLevel: null, sem1Units: [], sem2Units: []},
-        B: {sem1: null, sem2: null, finalLevel: null, sem1Units: [], sem2Units: []},
-        C: {sem1: null, sem2: null, finalLevel: null, sem1Units: [], sem2Units: []},
-        D: {sem1: null, sem2: null, finalLevel: null, sem1Units: [], sem2Units: []}
+        A:{sem1:null,sem2:null,finalLevel:null,sem1Units:[],sem2Units:[]},
+        B:{sem1:null,sem2:null,finalLevel:null,sem1Units:[],sem2Units:[]},
+        C:{sem1:null,sem2:null,finalLevel:null,sem1Units:[],sem2Units:[]},
+        D:{sem1:null,sem2:null,finalLevel:null,sem1Units:[],sem2Units:[]}
     };
     currentContributionId = null;
-    // Masquer le banner S2
     hideSemester2Banners();
 }
 
 function resetInputTables() {
-    // Réinitialiser les tableaux français
-    document.querySelectorAll("#communicationTable tbody select").forEach(s => s.value = '');
-    // Réinitialiser TOUS les inputs (y compris readOnly pour vider les notes S1 stale)
-    document.querySelectorAll("#criteriaTableBody input").forEach(i => { i.readOnly = false; i.style.backgroundColor = ''; i.style.cursor = ''; i.removeAttribute('title'); i.value = ''; });
-    const thresholdInput = document.getElementById("threshold");
-    const finalNoteInput = document.getElementById("finalNote");
-    if (thresholdInput) thresholdInput.value = '';
-    if (finalNoteInput) finalNoteInput.value = '';
-    const teacherComment = document.getElementById('teacherComment');
-    if (teacherComment) teacherComment.value = '';
-    
-    // Réinitialiser les tableaux arabes
-    document.querySelectorAll("#communicationTableArabic tbody select").forEach(s => s.value = '');
-    document.querySelectorAll("#criteriaTableBodyArabic input").forEach(i => { i.readOnly = false; i.style.backgroundColor = ''; i.style.cursor = ''; i.removeAttribute('title'); i.value = ''; });
-    const thresholdInputArabic = document.getElementById("thresholdArabic");
-    const finalNoteInputArabic = document.getElementById("finalNoteArabic");
-    if (thresholdInputArabic) thresholdInputArabic.value = '';
-    if (finalNoteInputArabic) finalNoteInputArabic.value = '';
-    const teacherCommentArabic = document.getElementById('teacherCommentArabic');
-    if (teacherCommentArabic) teacherCommentArabic.value = '';
+    document.querySelectorAll('#communicationTable tbody select, #communicationTableArabic tbody select').forEach(s=>s.value='');
+    document.querySelectorAll('#criteriaTableBody input, #criteriaTableBodyArabic input').forEach(i=>{
+        i.readOnly=false; i.style.backgroundColor=''; i.style.cursor=''; i.removeAttribute('title'); i.value='';
+    });
+    ['threshold','finalNote','thresholdArabic','finalNoteArabic'].forEach(id=>{
+        const el=document.getElementById(id); if(el) el.value='';
+    });
+    ['teacherComment','teacherCommentArabic'].forEach(id=>{
+        const el=document.getElementById(id); if(el) el.value='';
+    });
 }
 
-// Fonction utilitaire pour les couleurs
+// =====================================================
+// UTILITIES
+// =====================================================
 function getSubjectColor(subject) {
     const colors = {
-        "L.L": "#0d6efd",
-        "Mathématiques": "#198754",
-        "I.S": "#6f42c1",
-        "Sciences": "#ffc107",
-        "Biologie": "#0dcaf0",
-        "Physique-Chimie": "#d63384",
-        "Langue Anglaise": "#adb5bd",
-        "Design": "#6610f2",
-        "Musique": "#dc3545",
-        "ART": "#dc3545",
-        "Éducation Physique": "#000",
-        "E.S": "#6c757d"
+        "Mathématiques":                      "#16a34a",
+        "Individus et sociétés":              "#7c3aed",
+        "Langue et littérature":              "#2563eb",
+        "Design":                             "#6610f2",
+        "Sciences":                           "#b45309",
+        "Art visuel":                         "#dc2626",
+        "Éducation physique et à la santé":   "#0891b2",
+        "Éducation physique et sportive":     "#0891b2",
+        "Acquisition de langue (Anglais)":    "#374151",
+        "Acquisition de langue (اللغة العربية)": "#92400e"
     };
-    return colors[subject] || "#6c757d";
+    return colors[subject] || "#475569";
 }
 
-// Initialisation
-document.addEventListener('DOMContentLoaded', () => {
-    console.log("🚀 Livret IB Version 2.4 - isolation S1/S2, S1 modifiable en S2, panel suivi");
-    
-    if (currentData.teacherName) {
-        teacherNameInput.value = currentData.teacherName;
-    }
-    updateSemesterUI();
-    initProgressPanel();
-    console.log("📱 Application prête.");
-});
-
-// ============================================================
-// PANNEAU SUIVI / BILAN (Feature 3)
-// ============================================================
-const availableClassesBySection = {
-    'garçons': ['PEI1','PEI2','PEI3','PEI4','DP2'],
-    'filles':  ['PEI1','PEI2','PEI3','PEI4','PEI5','DP1','DP2']
-};
-
+// =====================================================
+// PROGRESS PANEL (Suivi)
+// =====================================================
 function initProgressPanel() {
     const sectionSel = document.getElementById('progressSection');
     if (!sectionSel) return;
     sectionSel.addEventListener('change', () => {
-        const section = sectionSel.value;
+        const section  = sectionSel.value;
         const classSel = document.getElementById('progressClass');
-        classSel.innerHTML = '<option value="">-- Classe --</option>';
-        (availableClassesBySection[section] || []).forEach(c => {
-            const o = document.createElement('option'); o.value = c; o.textContent = c;
+        classSel.innerHTML = '<option value="">— Classe —</option>';
+        (availableClassesBySection[section]||[]).forEach(c => {
+            const o=document.createElement('option'); o.value=c; o.textContent=c;
             classSel.appendChild(o);
         });
-        document.getElementById('progressContent').innerHTML = '<p style="color:#6c757d;text-align:center;margin-top:30px;">Sélectionnez une classe.</p>';
+        document.getElementById('progressContent').innerHTML =
+            '<p style="color:var(--gray-500);text-align:center;margin-top:30px;">Sélectionnez une classe.</p>';
     });
 }
 
@@ -2175,19 +1366,18 @@ function toggleProgressPanel() {
     const panel   = document.getElementById('progressPanel');
     const overlay = document.getElementById('progressOverlay');
     if (!panel) return;
-    const isOpen = panel.style.display !== 'none';
-    panel.style.display   = isOpen ? 'none' : 'block';
-    overlay.style.display = isOpen ? 'none' : 'block';
-    if (!isOpen) {
-        // Pré-remplir les filtres depuis la sélection courante
+    const open = panel.style.display !== 'none';
+    panel.style.display   = open ? 'none' : 'block';
+    overlay.style.display = open ? 'none' : 'block';
+    if (!open) {
+        // Auto-fill from current selection
         const secEl = document.getElementById('progressSection');
         const clsEl = document.getElementById('progressClass');
         if (currentData.sectionSelected && secEl) {
             secEl.value = currentData.sectionSelected;
-            // Peupler les classes
-            clsEl.innerHTML = '<option value="">-- Classe --</option>';
-            (availableClassesBySection[currentData.sectionSelected] || []).forEach(c => {
-                const o = document.createElement('option'); o.value = c; o.textContent = c;
+            clsEl.innerHTML = '<option value="">— Classe —</option>';
+            (availableClassesBySection[currentData.sectionSelected]||[]).forEach(c=>{
+                const o=document.createElement('option'); o.value=c; o.textContent=c;
                 clsEl.appendChild(o);
             });
             if (currentData.classSelected) {
@@ -2203,77 +1393,155 @@ async function loadProgressPanel() {
     const classe  = document.getElementById('progressClass')?.value;
     const content = document.getElementById('progressContent');
     if (!section || !classe || !content) return;
-
-    content.innerHTML = '<p style="text-align:center;color:#6c757d;padding:20px;">⏳ Chargement...</p>';
-
+    content.innerHTML = '<p style="text-align:center;color:var(--gray-500);padding:30px;">⏳ Chargement...</p>';
     try {
-        const response = await fetch('/api/studentProgress', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+        const resp = await fetch('/api/studentProgress', {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
             body: JSON.stringify({ classSelected: classe, sectionSelected: section })
         });
-        const data = await response.json();
-        if (!data.students) { content.innerHTML = '<p style="color:red;">Erreur de chargement.</p>'; return; }
-
-        let html = '';
+        const data = await resp.json();
+        if (!data.students) { content.innerHTML='<p style="color:red;">Erreur de chargement.</p>'; return; }
         const totalSubjects = data.expectedSubjects?.length || 9;
-
+        let html = '';
         data.students.forEach(student => {
-            const pctS1 = Math.round((student.s1Done / totalSubjects) * 100);
-            const pctS2 = Math.round((student.s2Done / totalSubjects) * 100);
-            const allDone = student.s1Done === totalSubjects && student.s2Done === totalSubjects;
-            const cardBorder = allDone ? '#198754' : (student.s1Done < totalSubjects || student.s2Done < totalSubjects ? '#ffc107' : '#dee2e6');
+            const pctS1 = Math.round((student.s1Done/totalSubjects)*100);
+            const pctS2 = Math.round((student.s2Done/totalSubjects)*100);
+            const allDone = student.s1Done===totalSubjects && student.s2Done===totalSubjects;
+            const borderColor = allDone ? '#16a34a' : (student.s1Done<totalSubjects||student.s2Done<totalSubjects) ? '#f59e0b' : '#e5e7eb';
 
-            html += `<div style="border:2px solid ${cardBorder}; border-radius:8px; margin-bottom:12px; overflow:hidden;">`;
-            // Entête élève
-            html += `<div style="background:${allDone?'#198754':'#6f42c1'}; color:white; padding:8px 12px; display:flex; justify-content:space-between; align-items:center;">
-                <strong>${student.studentName}</strong>
-                <span style="font-size:0.85em;">S1: ${student.s1Done}/${totalSubjects} &nbsp;|&nbsp; S2: ${student.s2Done}/${totalSubjects}</span>
+            html += `<div class="progress-student-card" style="border-color:${borderColor};">`;
+            html += `<div class="progress-student-header ${allDone?'done':''}">
+                <strong>${studentData[student.studentName]?.fullName||student.studentName}</strong>
+                <span class="counts">S1: ${student.s1Done}/${totalSubjects} · S2: ${student.s2Done}/${totalSubjects}</span>
             </div>`;
-            // Barres de progression
-            html += `<div style="padding:8px 12px 4px;">
-                <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
-                    <span style="font-size:0.8em; width:24px; color:#0d6efd;">S1</span>
-                    <div style="flex:1; background:#e9ecef; border-radius:4px; height:10px;">
-                        <div style="width:${pctS1}%; background:#0d6efd; border-radius:4px; height:10px; transition:width .3s;"></div>
-                    </div>
-                    <span style="font-size:0.8em; width:34px; text-align:right;">${pctS1}%</span>
+            html += `<div class="progress-bars">
+                <div class="progress-bar-row">
+                    <span class="sem-label" style="color:#2563eb;">S1</span>
+                    <div class="bar-track"><div class="bar-fill" style="width:${pctS1}%;background:#2563eb;"></div></div>
+                    <span class="pct-label">${pctS1}%</span>
                 </div>
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <span style="font-size:0.8em; width:24px; color:#198754;">S2</span>
-                    <div style="flex:1; background:#e9ecef; border-radius:4px; height:10px;">
-                        <div style="width:${pctS2}%; background:#198754; border-radius:4px; height:10px; transition:width .3s;"></div>
-                    </div>
-                    <span style="font-size:0.8em; width:34px; text-align:right;">${pctS2}%</span>
+                <div class="progress-bar-row">
+                    <span class="sem-label" style="color:#16a34a;">S2</span>
+                    <div class="bar-track"><div class="bar-fill" style="width:${pctS2}%;background:#16a34a;"></div></div>
+                    <span class="pct-label">${pctS2}%</span>
                 </div>
             </div>`;
 
-            // Détail des matières manquantes / incomplètes
-            if (!allDone || student.incomplete?.length > 0) {
-                html += `<div style="padding:6px 12px 10px;">`;
-                student.subjectStatus.forEach(ss => {
+            // Subject detail rows — only non-complete
+            const incompleteRows = student.subjectStatus.filter(ss => !(ss.s1.done&&ss.s1.hasNotes&&ss.s2.done&&ss.s2.hasNotes));
+            if (incompleteRows.length > 0) {
+                html += `<div class="progress-subjects-list">`;
+                incompleteRows.forEach(ss => {
                     const s1ok = ss.s1.done && ss.s1.hasNotes;
                     const s2ok = ss.s2.done && ss.s2.hasNotes;
-                    if (s1ok && s2ok) return; // tout bon, ne pas afficher
-                    const icon = (!ss.s1.done && !ss.s2.done) ? '❌' : (s1ok && !s2ok) ? '🟡' : (!s1ok && s2ok) ? '🟠' : '⚠️';
-                    const s1txt = ss.s1.done ? (ss.s1.hasNotes ? '✅' : '⚠️ notes') : '—';
-                    const s2txt = ss.s2.done ? (ss.s2.hasNotes ? '✅' : '⚠️ notes') : '—';
-                    html += `<div style="display:flex; justify-content:space-between; align-items:center; font-size:0.82em; padding:2px 0; border-bottom:1px solid #f0f0f0;">
-                        <span>${icon} ${ss.subject}</span>
-                        <span style="color:#6c757d;">S1: ${s1txt} &nbsp; S2: ${s2txt}</span>
+                    const icon = (!ss.s1.done && !ss.s2.done) ? '❌' : (s1ok&&!s2ok) ? '🟡' : (!s1ok&&s2ok) ? '🟠' : '⚠️';
+                    const s1txt = ss.s1.done ? (ss.s1.hasNotes?'✅':'⚠️ notes') : '—';
+                    const s2txt = ss.s2.done ? (ss.s2.hasNotes?'✅':'⚠️ notes') : '—';
+                    // Build navigation data — stored as escaped JSON string attribute
+                    const navObj = JSON.stringify({
+                        student: student.studentName,
+                        subject: ss.subject,
+                        section, classe,
+                        semester: ss.s1.done && !ss.s2.done ? 2 : 1
+                    });
+                    const navData = navObj.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                    html += `<div class="progress-subject-row" onclick="navigateToContribution(decodeNavData(this))" data-nav="${navData}" title="Aller à la contribution">
+                        <span class="sub-name">${icon} ${ss.subject}</span>
+                        <span class="sub-status">S1: ${s1txt} &nbsp; S2: ${s2txt}</span>
+                        <span class="nav-arrow">→</span>
                     </div>`;
                 });
                 html += `</div>`;
             }
+
             html += `</div>`;
         });
-
-        content.innerHTML = html || '<p style="color:#198754;text-align:center;padding:20px;">✅ Tout est complet !</p>';
+        content.innerHTML = html || '<p style="color:#16a34a;text-align:center;padding:20px;">✅ Tout est complet !</p>';
     } catch(e) {
         content.innerHTML = `<p style="color:red;">Erreur: ${e.message}</p>`;
     }
 }
 
-// Exposer pour index.html
-window.toggleProgressPanel = toggleProgressPanel;
-window.loadProgressPanel   = loadProgressPanel;
+// =====================================================
+// DIRECT NAVIGATION FROM PROGRESS PANEL
+// Feature 4: clicking a subject row navigates directly
+// =====================================================
+function decodeNavData(el) {
+    try { return JSON.parse(el.getAttribute('data-nav').replace(/&quot;/g, '"')); }
+    catch(e) { return null; }
+}
+
+async function navigateToContribution(navDataStr) {
+    let nav;
+    try {
+        if (!navDataStr) return;
+        nav = typeof navDataStr === 'string' ? JSON.parse(navDataStr) : navDataStr;
+    }
+    catch(e) { return; }
+
+    const { student, subject, section, classe, semester } = nav;
+    // Close panel
+    toggleProgressPanel();
+    // Show loading toast
+    showToast(`Chargement de ${studentData[student]?.fullName||student} — ${subject}`, 'info', 2500);
+
+    // Set state
+    currentSemester = semester || 1;
+    updateSemesterUI();
+    currentData.sectionSelected = section;
+    currentData.classSelected   = classe;
+    currentData.studentSelected = student;
+    currentData.subjectSelected = null;
+
+    // Show section step
+    document.getElementById('step0').style.display  = 'none';
+    document.getElementById('step0b').style.display = 'none';
+
+    // Build class grid
+    populateClassGrid(section);
+    document.getElementById('step1').style.display = 'block';
+    // Highlight class
+    document.querySelectorAll('.class-card').forEach(c => c.classList.toggle('selected', c.dataset.class===classe));
+
+    // Build student grid
+    populateStudentGrid();
+    document.getElementById('step3').style.display = 'block';
+    // Highlight student
+    document.querySelectorAll('.student-card').forEach(c => c.classList.toggle('selected', c.dataset.student===student));
+
+    // Show student info
+    await showStudentInfo();
+
+    // Load subjects
+    await populateSubjects();
+
+    // Click the subject card
+    await handleSubjectChange(subject);
+    // Highlight subject card
+    document.querySelectorAll('.subject-card').forEach(c => c.classList.toggle('selected', c.dataset.subject===subject));
+
+    // Scroll to form
+    setTimeout(() => {
+        contributionEntrySections.scrollIntoView({ behavior:'smooth', block:'start' });
+    }, 200);
+}
+
+// =====================================================
+// INIT
+// =====================================================
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('🚀 Livret IB v3.0 — Nouvelle interface, critères corrigés, navigation directe');
+    if (currentData.teacherName && teacherNameInput) teacherNameInput.value = currentData.teacherName;
+    updateSemesterUI();
+    initProgressPanel();
+    console.log('✅ Application prête.');
+});
+
+// =====================================================
+// WINDOW EXPORTS
+// =====================================================
+window.toggleProgressPanel    = toggleProgressPanel;
+window.loadProgressPanel      = loadProgressPanel;
+window.navigateToContribution = navigateToContribution;
+window.decodeNavData          = decodeNavData;

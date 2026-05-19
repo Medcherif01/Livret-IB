@@ -86,30 +86,86 @@ let isDbConnected = false;
 // --- Structure Données (Référence pour les critères) ---
 const criteriaBySubject = {
     // Matières PEI (PEI1-PEI5) et DP (DP1-DP2) - CRITÈRES IDENTIQUES A-D
-    "Mathématiques":{A:"Connaissances et compréhension",B:"Recherche de modèles",C:"Communication",D:"Application des mathématiques"},
-    "Individus et sociétés":{A:"Connaissances et compréhension",B:"Recherche",C:"Communication",D:"Pensée critique"},
-    "Langue et littérature":{A:"Analyse",B:"Organisation",C:"Production de texte",D:"Utilisation de la langue"},
-    "Design":{A:"Recherche et analyse",B:"Développement des idées",C:"Création de la solution",D:"Évaluation"},
-    "Sciences":{A:"Connaissances et compréhension",B:"Recherche et élaboration",C:"Traitement et évaluation",D:"Réflexion sur les répercussions"},
-    "Art visuel":{A:"Connaissances et compréhension",B:"Développement des compétences",C:"Pensée créative",D:"Réaction"},
-    "Éducation physique et sportive":{A:"Connaissances et compréhension",B:"Planification",C:"Application et exécution",D:"Réflexion et amélioration"},
-    "Acquisition de langue (Anglais)":{A:"Listening",B:"Reading",C:"Speaking",D:"Writing"},
-    "Acquisition de langue (اللغة العربية)":{A:"الاستماع",B:"القراءة",C:"التحدث",D:"الكتابة"},
-    // Anciennes matières pour rétrocompatibilité
-    "Acquisition de langues (Anglais)":{A:"Listening",B:"Reading",C:"Speaking",D:"Writing"},
+    // ── Matières principales PEI / DP ──────────────────────────────────────────
+    "Mathématiques":{
+        A:"Connaissances et compréhension",
+        B:"Recherche de modèles",
+        C:"Communication",
+        D:"Application des mathématiques dans des contextes de la vie réelle"
+    },
+    "Individus et sociétés":{
+        A:"Connaissances et compréhension",
+        B:"Recherche",
+        C:"Communication",
+        D:"Pensée critique"
+    },
+    "Langue et littérature":{
+        A:"Analyse",
+        B:"Organisation",
+        C:"Production de texte",
+        D:"Utilisation de la langue"
+    },
+    "Design":{
+        A:"Recherche et analyse",
+        B:"Développement des idées",
+        C:"Création de la solution",
+        D:"Évaluation"
+    },
+    "Sciences":{
+        A:"Connaissances et compréhension",
+        B:"Recherche et élaboration",
+        C:"Traitement et évaluation",
+        D:"Réflexion sur les répercussions de la science"
+    },
+    "Art visuel":{
+        A:"Recherche",
+        B:"Développement",
+        C:"Création ou exécution",
+        D:"Évaluation"
+    },
+    "Arts":{
+        A:"Recherche",
+        B:"Développement",
+        C:"Création ou exécution",
+        D:"Évaluation"
+    },
+    "Éducation physique et à la santé":{
+        A:"Connaissances et compréhension",
+        B:"Planification de la performance",
+        C:"Application et exécution",
+        D:"Réflexion et amélioration de la performance"
+    },
+    "Acquisition de langue (Anglais)":{
+        A:"Listening Comprehension",
+        B:"Reading Comprehension",
+        C:"Speaking",
+        D:"Writing"
+    },
+    "Acquisition de langue (اللغة العربية)":{
+        A:"الاستماع",
+        B:"القراءة",
+        C:"التحدث",
+        D:"الكتابة"
+    },
+    // ── Alias / rétrocompatibilité ─────────────────────────────────────────────
+    "Éducation physique et sportive":{
+        A:"Connaissances et compréhension",
+        B:"Planification de la performance",
+        C:"Application et exécution",
+        D:"Réflexion et amélioration de la performance"
+    },
+    "Acquisition de langues (Anglais)":{A:"Listening Comprehension",B:"Reading Comprehension",C:"Speaking",D:"Writing"},
     "Langue et littérature (Français)":{A:"Analyse",B:"Organisation",C:"Production de texte",D:"Utilisation de la langue"},
     "Langues et littérature":{A:"Analyse",B:"Organisation",C:"Production de texte",D:"Utilisation de la langue"},
-    "Biologie":{A:"Connaissances et compréhension",B:"Recherche et élaboration",C:"Traitement et évaluation",D:"Réflexion sur les répercussions"},
-    "Physique-Chimie":{A:"Connaissances et compréhension",B:"Recherche et élaboration",C:"Traitement et évaluation",D:"Réflexion sur les répercussions"},
-    "Langue Anglaise":{A:"Listening",B:"Reading",C:"Speaking",D:"Writing"},
-    "Musique":{A:"Connaissances et comprehensions",B:"Développement des competences",C:"Pensée créative",D:"Réaction"},
-    "Arts":{A:"Connaissances et comprehensions",B:"Développement des competences",C:"Pensée créative",D:"Réaction"},
-    "ART":{A:"Connaissances et comprehensions",B:"Développement des competences",C:"Pensée créative",D:"Réaction"},
-    "Éducation Physique":{A:"Connaissances et compréhension",B:"Planification",C:"Application et exécution",D:"Réflexion et amélioration"},
-    "Éducation physique et à la santé":{A:"Connaissances et compréhension",B:"Planification",C:"Application et exécution",D:"Réflexion et amélioration"},
+    "Biologie":{A:"Connaissances et compréhension",B:"Recherche et élaboration",C:"Traitement et évaluation",D:"Réflexion sur les répercussions de la science"},
+    "Physique-Chimie":{A:"Connaissances et compréhension",B:"Recherche et élaboration",C:"Traitement et évaluation",D:"Réflexion sur les répercussions de la science"},
+    "Langue Anglaise":{A:"Listening Comprehension",B:"Reading Comprehension",C:"Speaking",D:"Writing"},
+    "Musique":{A:"Recherche",B:"Développement",C:"Création ou exécution",D:"Évaluation"},
+    "ART":{A:"Recherche",B:"Développement",C:"Création ou exécution",D:"Évaluation"},
+    "Éducation Physique":{A:"Connaissances et compréhension",B:"Planification de la performance",C:"Application et exécution",D:"Réflexion et amélioration de la performance"},
     "L.L":{A:"Analyse",B:"Organisation",C:"Production de texte",D:"Utilisation de la langue"},
     "I.S":{A:"Connaissances et compréhension",B:"Recherche",C:"Communication",D:"Pensée critique"},
-    "E.S":{A:"Connaissances et compréhension",B:"Recherche et élaboration",C:"Traitement et évaluation",D:"Réflexion sur les répercussions"}
+    "E.S":{A:"Connaissances et compréhension",B:"Recherche et élaboration",C:"Traitement et évaluation",D:"Réflexion sur les répercussions de la science"}
 };
 
 // --- Connexion Base de Données ---
@@ -1099,13 +1155,13 @@ app.post('/api/studentProgress', async (req, res) => {
 
         // Référentiel statique des matières par classe (même liste que côté client)
         const subjectsByClass = {
-            PEI1:["Mathématiques","Individus et sociétés","Langue et littérature","Design","Sciences","Art visuel","Éducation physique et sportive","Acquisition de langue (Anglais)","Acquisition de langue (اللغة العربية)"],
-            PEI2:["Mathématiques","Individus et sociétés","Langue et littérature","Design","Sciences","Art visuel","Éducation physique et sportive","Acquisition de langue (Anglais)","Acquisition de langue (اللغة العربية)"],
-            PEI3:["Mathématiques","Individus et sociétés","Langue et littérature","Design","Sciences","Art visuel","Éducation physique et sportive","Acquisition de langue (Anglais)","Acquisition de langue (اللغة العربية)"],
-            PEI4:["Mathématiques","Individus et sociétés","Langue et littérature","Design","Sciences","Art visuel","Éducation physique et sportive","Acquisition de langue (Anglais)","Acquisition de langue (اللغة العربية)"],
-            PEI5:["Mathématiques","Individus et sociétés","Langue et littérature","Design","Sciences","Art visuel","Éducation physique et sportive","Acquisition de langue (Anglais)","Acquisition de langue (اللغة العربية)"],
-            DP1:["Mathématiques","Individus et sociétés","Langue et littérature","Design","Sciences","Art visuel","Éducation physique et sportive","Acquisition de langue (Anglais)","Acquisition de langue (اللغة العربية)"],
-            DP2:["Mathématiques","Individus et sociétés","Langue et littérature","Design","Sciences","Art visuel","Éducation physique et sportive","Acquisition de langue (Anglais)","Acquisition de langue (اللغة العربية)"]
+            PEI1:["Mathématiques","Individus et sociétés","Langue et littérature","Design","Sciences","Art visuel","Éducation physique et à la santé","Acquisition de langue (Anglais)","Acquisition de langue (اللغة العربية)"],
+            PEI2:["Mathématiques","Individus et sociétés","Langue et littérature","Design","Sciences","Art visuel","Éducation physique et à la santé","Acquisition de langue (Anglais)","Acquisition de langue (اللغة العربية)"],
+            PEI3:["Mathématiques","Individus et sociétés","Langue et littérature","Design","Sciences","Art visuel","Éducation physique et à la santé","Acquisition de langue (Anglais)","Acquisition de langue (اللغة العربية)"],
+            PEI4:["Mathématiques","Individus et sociétés","Langue et littérature","Design","Sciences","Art visuel","Éducation physique et à la santé","Acquisition de langue (Anglais)","Acquisition de langue (اللغة العربية)"],
+            PEI5:["Mathématiques","Individus et sociétés","Langue et littérature","Design","Sciences","Art visuel","Éducation physique et à la santé","Acquisition de langue (Anglais)","Acquisition de langue (اللغة العربية)"],
+            DP1:["Mathématiques","Individus et sociétés","Langue et littérature","Design","Sciences","Art visuel","Éducation physique et à la santé","Acquisition de langue (Anglais)","Acquisition de langue (اللغة العربية)"],
+            DP2:["Mathématiques","Individus et sociétés","Langue et littérature","Design","Sciences","Art visuel","Éducation physique et à la santé","Acquisition de langue (Anglais)","Acquisition de langue (اللغة العربية)"]
         };
 
         const studentsByClassAndSection = {
