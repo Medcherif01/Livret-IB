@@ -350,12 +350,23 @@ function populateClassGrid(section) {
 // NAVIGATION — CLASS
 // =====================================================
 function handleClassChange(value) {
+    // Reset student/subject state FIRST (before setting new class)
+    _isPopulatingSubjects = false;
+    if (subjectsGrid) subjectsGrid.innerHTML = '';
+    document.getElementById('step2').style.display = 'none';
+    studentInfoContainer.style.display = 'none';
+    contributionEntrySections.style.display = 'none';
+    dataContainer.style.display = 'none';
+    currentData.studentSelected = null;
+    currentData.subjectSelected = null;
+    resetFormData();
+
+    // Set new class
     currentData.classSelected = value;
     // Highlight selected card
     document.querySelectorAll('.class-card').forEach(c => {
         c.classList.toggle('selected', c.dataset.class === value);
     });
-    resetOnClassChange();
     if (value) {
         populateStudentGrid();
         document.getElementById('step3').style.display = 'block';
@@ -389,12 +400,21 @@ function populateStudentGrid() {
 // NAVIGATION — STUDENT
 // =====================================================
 function handleStudentChange(name) {
+    // Reset previous subject/form state (but keep studentSelected)
+    _isPopulatingSubjects = false;
+    if (subjectsGrid) subjectsGrid.innerHTML = '';
+    document.getElementById('step2').style.display = 'none';
+    contributionEntrySections.style.display = 'none';
+    dataContainer.style.display = 'none';
+    currentData.subjectSelected = null;
+    resetFormData();
+
+    // Set new student
     currentData.studentSelected = name;
     // Highlight selected student card
     document.querySelectorAll('.student-card').forEach(c => {
         c.classList.toggle('selected', c.dataset.student === name);
     });
-    resetOnStudentChange();
     if (name) {
         showStudentInfo();
         populateSubjects();
@@ -1291,13 +1311,16 @@ function resetOnClassChange() {
 }
 
 function resetOnStudentChange() {
+    // Used when going BACK to class — clears student + subject state
     _isPopulatingSubjects = false;
     if (subjectsGrid) subjectsGrid.innerHTML = '';
     document.getElementById('step2').style.display = 'none';
     studentInfoContainer.style.display = 'none';
     currentData.studentSelected = null;
-    resetOnSubjectChange();
+    currentData.subjectSelected = null;
+    contributionEntrySections.style.display = 'none';
     dataContainer.style.display = 'none';
+    resetFormData();
 }
 
 function resetOnSubjectChange() {
