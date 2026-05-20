@@ -448,9 +448,22 @@ function createCriteriaDataForTemplate(criteriaValues, originalSubjectName, clas
     criteriaKeys.forEach((key, idx) => {
         const aoKey    = aoKeys[idx];                            // AO1 … AO4
         const critData = criteriaValues?.[key] || {};
-        const sem1Val  = critData.sem1       ?? '-';
-        const sem2Val  = critData.sem2       ?? '-';
-        const finalVal = critData.finalLevel ?? '-';
+        const sem1Raw  = critData.sem1       ?? null;
+        const sem2Raw  = critData.sem2       ?? null;
+        const sem1Val  = sem1Raw !== null ? sem1Raw : '-';
+        const sem2Val  = sem2Raw !== null ? sem2Raw : '-';
+        // Recalculer finalLevel si absent ou null
+        let finalRaw = critData.finalLevel ?? null;
+        if (finalRaw === null) {
+            if (sem1Raw !== null && sem2Raw !== null) {
+                finalRaw = Math.round((parseFloat(sem1Raw) + parseFloat(sem2Raw)) / 2);
+            } else if (sem1Raw !== null) {
+                finalRaw = parseFloat(sem1Raw);
+            } else if (sem2Raw !== null) {
+                finalRaw = parseFloat(sem2Raw);
+            }
+        }
+        const finalVal = finalRaw !== null ? finalRaw : '-';
         const label    = criteriaNames[key]  || `Critère ${key}`;
 
         // ── Clés SANS espaces (DocxTemplater ne supporte pas les espaces) ──
@@ -468,15 +481,16 @@ function createCriteriaDataForTemplate(criteriaValues, originalSubjectName, clas
         templateData[`criteria${key}sem2`]    = sem2Val;
         templateData[`finalLevel${key}`]      = finalVal;
 
-        // ── Alias avec point/espace pour rétrocompatibilité des anciens templates ──
+        // ── Alias avec point/espace — toutes les variantes possibles du template ──
+        templateData[`finalLevel.${aoKey}`]   = finalVal;       // {finalLevel.AO1} ← template actuel
+        templateData[`finalLevel.${key}`]     = finalVal;       // {finalLevel.A}
         templateData[`criteriaName ${aoKey}`] = label;          // {criteriaName AO1}
-        templateData[`criteria${aoKey}.sem1`] = sem1Val;        // {criteriaAO1.sem1}
-        templateData[`criteria${aoKey}.sem2`] = sem2Val;
         templateData[`criteriaName ${key}`]   = label;          // {criteriaName A}
+        templateData[`criteria${aoKey}.sem1`] = sem1Val;        // {criteriaAO1.sem1}
+        templateData[`criteria${aoKey}.sem2`] = sem2Val;        // {criteriaAO1.sem2}
         templateData[`criteria${key}.sem1`]   = sem1Val;        // {criteriaA.sem1}
-        templateData[`criteria${key}.sem2`]   = sem2Val;
-        templateData[`criteriaKey.${key}`]    = key;
-        templateData[`finalLevel.${key}`]     = finalVal;
+        templateData[`criteria${key}.sem2`]   = sem2Val;        // {criteriaA.sem2}
+        templateData[`criteriaKey.${key}`]    = key;            // {criteriaKey.A}
 
         if (finalVal !== '-' && !isNaN(finalVal)) {
             totalLevel += parseFloat(finalVal);
