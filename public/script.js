@@ -475,7 +475,21 @@ async function populateSubjects() {
         if (!classSelected || !studentSelected || !subjectsGrid) return;
         subjectsGrid.innerHTML = '';
 
-        let existingMap = {};
+        // Helpers locaux — même logique que le backend
+        function _allSemFilled(criteriaValues, semKey) {
+            if (!criteriaValues) return false;
+            return ['A','B','C','D'].every(k => {
+                const v = criteriaValues[k]?.[semKey];
+                return v !== null && v !== undefined && v !== '';
+            });
+        }
+        function _allATLFilled(comm) {
+            return !!(comm && comm.length >= 5 && comm.slice(0,5).every(v => v && v !== ''));
+        }
+        function _hasComment(tc) {
+            return !!(tc && tc.trim() && tc !== '-');
+        }
+
         try {
             const resp = await apiCall('fetchStudentContributions', {
                 studentSelected, classSelected,
@@ -484,12 +498,14 @@ async function populateSubjects() {
             });
             completedSubjects[studentSelected] = {};
             if (resp?.contributions) {
-                const seen = new Set();
+                const semKey = currentSemester === 2 ? 'sem2' : 'sem1';
                 resp.contributions.forEach(c => {
-                    if (c.subjectSelected && !seen.has(c.subjectSelected)) {
-                        seen.add(c.subjectSelected);
-                        completedSubjects[studentSelected][c.subjectSelected] = true;
-                    }
+                    if (!c.subjectSelected) return;
+                    // Complet seulement si : toutes les notes sem remplies + ATL all 5 + commentaire
+                    const notesOk   = _allSemFilled(c.criteriaValues, semKey);
+                    const atlOk     = _allATLFilled(c.communicationEvaluation);
+                    const commentOk = _hasComment(c.teacherComment);
+                    completedSubjects[studentSelected][c.subjectSelected] = notesOk && atlOk && commentOk;
                 });
             }
         } catch(e) {}
@@ -1023,10 +1039,22 @@ async function submitForm() {
             currentContributionId = result.data;
             showToast('✅ Contribution enregistrée avec succès !', 'success');
 
-            // Mark subject card completed
+            // Recalculer si la matière est vraiment complète
+            const semKey = currentSemester === 2 ? 'sem2' : 'sem1';
+            const notesOk   = ['A','B','C','D'].every(k => {
+                const v = currentData.criteriaValues?.[k]?.[semKey];
+                return v !== null && v !== undefined && v !== '';
+            });
+            const atlOk     = currentData.communicationEvaluation?.slice(0,5).every(v => v && v !== '');
+            const commentOk = !!(currentData.teacherComment?.trim() && currentData.teacherComment !== '-');
+            const isComplete = notesOk && atlOk && commentOk;
+
             if (!completedSubjects[currentData.studentSelected]) completedSubjects[currentData.studentSelected]={};
-            completedSubjects[currentData.studentSelected][currentData.subjectSelected] = true;
-            document.querySelector(`.subject-card[data-subject="${CSS.escape(currentData.subjectSelected)}"]`)?.classList.add('completed');
+            completedSubjects[currentData.studentSelected][currentData.subjectSelected] = isComplete;
+            const subjectCard = document.querySelector(`.subject-card[data-subject="${CSS.escape(currentData.subjectSelected)}"]`);
+            if (subjectCard) {
+                subjectCard.classList.toggle('completed', isComplete);
+            }
         } else {
             throw new Error(result.error || 'Erreur inconnue');
         }

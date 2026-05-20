@@ -440,40 +440,52 @@ function createCriteriaDataForTemplate(criteriaValues, originalSubjectName, clas
     const criteriaNames = criteriaBySubject[originalSubjectName] || {};
     const templateData = {};
     let totalLevel = 0;
-    
-    // Utiliser A-D pour toutes les classes (PEI et DP)
-    // Le template Word utilise les clés AO1, AO2, AO3, AO4
+
     const criteriaKeys = ['A', 'B', 'C', 'D'];
-    const aoKeys     = ['AO1', 'AO2', 'AO3', 'AO4'];
+    const aoKeys       = ['AO1', 'AO2', 'AO3', 'AO4'];
     const maxNote = (className === 'DP1' || className === 'DP2') ? 7 : 8;
-    
+
     criteriaKeys.forEach((key, idx) => {
-        const aoKey = aoKeys[idx]; // AO1, AO2, AO3, AO4
+        const aoKey    = aoKeys[idx];                            // AO1 … AO4
         const critData = criteriaValues?.[key] || {};
-        const finalLevelValue = critData.finalLevel ?? "-";
+        const sem1Val  = critData.sem1       ?? '-';
+        const sem2Val  = critData.sem2       ?? '-';
+        const finalVal = critData.finalLevel ?? '-';
+        const label    = criteriaNames[key]  || `Critère ${key}`;
 
-        // Clés au format attendu par le template Word
-        templateData[`criteriaKey${aoKey}`]  = key;                             // {criteriaKeyAO1} = A
-        templateData[`criteriaName ${aoKey}`] = criteriaNames[key] || `Critère ${key}`; // {criteriaName AO1}
-        templateData[`criteria${aoKey}.sem1`] = critData.sem1 ?? "-";          // {criteriaAO1.sem1}
-        templateData[`criteria${aoKey}.sem2`] = critData.sem2 ?? "-";          // {criteriaAO1.sem2}
-        templateData[`finalLevel${aoKey}`]    = finalLevelValue;                // {finalLevelAO1}
+        // ── Clés SANS espaces (DocxTemplater ne supporte pas les espaces) ──
+        // Format AO : {criteriaKeyAO1} {criteriaNameAO1} {criteriaAO1sem1} …
+        templateData[`criteriaKey${aoKey}`]   = key;
+        templateData[`criteriaName${aoKey}`]  = label;          // ← sans espace
+        templateData[`criteria${aoKey}sem1`]  = sem1Val;        // ← sans point
+        templateData[`criteria${aoKey}sem2`]  = sem2Val;
+        templateData[`finalLevel${aoKey}`]    = finalVal;
 
-        // Conserver aussi les anciennes clés pour compatibilité ascendante
-        templateData[`criteriaKey.${key}`]  = key;
-        templateData[`criteriaName ${key}`] = criteriaNames[key] || `Critère ${key}`;
-        templateData[`criteria${key}.sem1`] = critData.sem1 ?? "-";
-        templateData[`criteria${key}.sem2`] = critData.sem2 ?? "-";
-        templateData[`finalLevel.${key}`]   = finalLevelValue;
-        
-        if (finalLevelValue !== "-" && !isNaN(finalLevelValue)) {
-            totalLevel += parseFloat(finalLevelValue);
+        // Format lettre : {criteriaKeyA} {criteriaNameA} {criteriaAsem1} …
+        templateData[`criteriaKey${key}`]     = key;
+        templateData[`criteriaName${key}`]    = label;
+        templateData[`criteria${key}sem1`]    = sem1Val;
+        templateData[`criteria${key}sem2`]    = sem2Val;
+        templateData[`finalLevel${key}`]      = finalVal;
+
+        // ── Alias avec point/espace pour rétrocompatibilité des anciens templates ──
+        templateData[`criteriaName ${aoKey}`] = label;          // {criteriaName AO1}
+        templateData[`criteria${aoKey}.sem1`] = sem1Val;        // {criteriaAO1.sem1}
+        templateData[`criteria${aoKey}.sem2`] = sem2Val;
+        templateData[`criteriaName ${key}`]   = label;          // {criteriaName A}
+        templateData[`criteria${key}.sem1`]   = sem1Val;        // {criteriaA.sem1}
+        templateData[`criteria${key}.sem2`]   = sem2Val;
+        templateData[`criteriaKey.${key}`]    = key;
+        templateData[`finalLevel.${key}`]     = finalVal;
+
+        if (finalVal !== '-' && !isNaN(finalVal)) {
+            totalLevel += parseFloat(finalVal);
         }
     });
-    
+
     const finalNote = calculateFinalNote(totalLevel, maxNote);
-    templateData['seuil'] = totalLevel.toString();
-    templateData['note'] = finalNote;
+    templateData['seuil'] = totalLevel > 0 ? totalLevel.toString() : '-';
+    templateData['note']  = totalLevel > 0 ? finalNote : '-';
     return templateData;
 }
 
@@ -751,7 +763,7 @@ async function createWordDocumentBuffer(studentName, className, studentBirthdate
         // Le template S2 utilise {%image}, S1 peut utiliser {image} (texte) ou {%image}
         let docTemplaterOptions = {
             paragraphLoop: true,
-            linebreaks: true,
+            linebreaks: false,   // false = pas de sauts de ligne parasites dans les cellules Word
             nullGetter: () => ''
         };
         
@@ -829,7 +841,7 @@ async function createWordDocumentBufferNoImage(studentName, className, studentBi
     
     const doc = new DocxTemplater(zip, {
         paragraphLoop: true,
-        linebreaks: true,
+        linebreaks: false,   // false = pas de sauts de ligne parasites dans les cellules Word
         nullGetter: () => ''
     });
     
@@ -1192,21 +1204,61 @@ app.post('/api/studentProgress', async (req, res) => {
             index[c.studentSelected][c.subjectSelected][`s${sem}`] = c;
         });
 
+        // Helper: vérifie si TOUTES les notes sem1 (A–D) sont remplies
+        function allSem1Filled(criteriaValues) {
+            if (!criteriaValues) return false;
+            return ['A','B','C','D'].every(k => {
+                const v = criteriaValues[k]?.sem1;
+                return v !== null && v !== undefined && v !== '';
+            });
+        }
+        function allSem2Filled(criteriaValues) {
+            if (!criteriaValues) return false;
+            return ['A','B','C','D'].every(k => {
+                const v = criteriaValues[k]?.sem2;
+                return v !== null && v !== undefined && v !== '';
+            });
+        }
+        // ATL : les 5 compétences doivent toutes être remplies
+        function allATLFilled(communicationEvaluation) {
+            if (!communicationEvaluation || communicationEvaluation.length < 5) return false;
+            return communicationEvaluation.slice(0, 5).every(v => v && v !== '');
+        }
+        function hasComment(teacherComment) {
+            return !!(teacherComment && teacherComment.trim() && teacherComment !== '-');
+        }
+
         const students = studentList.map(studentName => {
             const subjectStatus = expectedSubjects.map(subj => {
                 const s1 = index[studentName]?.[subj]?.s1;
                 const s2 = index[studentName]?.[subj]?.s2;
-                // Vérifier si les données sont complètes (notes saisies)
-                const hasS1Notes = s1 && s1.criteriaValues && ['A','B','C','D'].some(k => s1.criteriaValues[k]?.sem1 !== null && s1.criteriaValues[k]?.sem1 !== undefined);
-                const hasS2Notes = s2 && s2.criteriaValues && ['A','B','C','D'].some(k => s2.criteriaValues[k]?.sem2 !== null && s2.criteriaValues[k]?.sem2 !== undefined);
-                const hasS1Comment = !!(s1?.teacherComment && s1.teacherComment.trim() && s1.teacherComment !== '-');
-                const hasS2Comment = !!(s2?.teacherComment && s2.teacherComment.trim() && s2.teacherComment !== '-');
-                const hasS1ATL = !!(s1?.communicationEvaluation?.some(v => v && v !== ''));
-                const hasS2ATL = !!(s2?.communicationEvaluation?.some(v => v && v !== ''));
+
+                // S1 est COMPLET seulement si : notes sem1 toutes remplies + ATL all 5 + commentaire
+                const s1Complete = !!s1
+                    && allSem1Filled(s1.criteriaValues)
+                    && allATLFilled(s1.communicationEvaluation)
+                    && hasComment(s1.teacherComment);
+
+                // S2 est COMPLET seulement si : notes sem2 toutes remplies + ATL all 5 + commentaire
+                const s2Complete = !!s2
+                    && allSem2Filled(s2.criteriaValues)
+                    && allATLFilled(s2.communicationEvaluation)
+                    && hasComment(s2.teacherComment);
+
                 return {
                     subject: subj,
-                    s1: { done: !!s1, hasNotes: !!hasS1Notes, hasComment: hasS1Comment, hasATL: hasS1ATL },
-                    s2: { done: !!s2, hasNotes: !!hasS2Notes, hasComment: hasS2Comment, hasATL: hasS2ATL }
+                    s1: {
+                        done:       s1Complete,
+                        hasNotes:   !!s1 && allSem1Filled(s1.criteriaValues),
+                        hasComment: !!s1 && hasComment(s1.teacherComment),
+                        hasATL:     !!s1 && allATLFilled(s1.communicationEvaluation)
+                    },
+                    s2: {
+                        done:       s2Complete,
+                        hasNotes:   !!s2 && allSem2Filled(s2.criteriaValues),
+                        hasComment: !!s2 && hasComment(s2.teacherComment),
+                        hasATL:     !!s2 && allATLFilled(s2.communicationEvaluation)
+                    }
                 };
             });
 
@@ -1214,9 +1266,8 @@ app.post('/api/studentProgress', async (req, res) => {
             const s1Done  = subjectStatus.filter(s => s.s1.done).length;
             const s2Done  = subjectStatus.filter(s => s.s2.done).length;
             const missing = subjectStatus.filter(s => !s.s1.done || !s.s2.done);
-            const incomplete = subjectStatus.filter(s => (s.s1.done && (!s.s1.hasNotes || !s.s1.hasComment)) || (s.s2.done && (!s.s2.hasNotes || !s.s2.hasComment)));
 
-            return { studentName, totalSubjects, s1Done, s2Done, missing, incomplete, subjectStatus };
+            return { studentName, totalSubjects, s1Done, s2Done, missing, subjectStatus };
         });
 
         res.json({ students, expectedSubjects });

@@ -1140,15 +1140,36 @@ section {
 .arabic-section {
     direction: rtl;
     text-align: right;
+    unicode-bidi: embed;
 }
-.arabic-section table { direction: rtl; }
+/* Tout le contenu RTL */
+.arabic-section * { direction: rtl; }
+.arabic-section table { direction: rtl; width: 100%; }
 .arabic-section th, .arabic-section td { text-align: center; }
-.arabic-section h2, .arabic-section h3 { text-align: right; }
+.arabic-section th:first-child, .arabic-section td:first-child { text-align: right; }
+.arabic-section h2, .arabic-section h3, .arabic-section p, .arabic-section label { text-align: right; }
 .arabic-section input, .arabic-section textarea, .arabic-section select {
     direction: rtl;
     text-align: right;
 }
+/* Bouton soumission à droite */
+.arabic-section .submit-row { text-align: right; }
 .arabic-section button { direction: rtl; }
+/* Section-title RTL */
+.arabic-section .section-title {
+    flex-direction: row-reverse;
+    text-align: right;
+    justify-content: flex-start;
+}
+/* Units row RTL */
+.arabic-section .units-row {
+    direction: rtl;
+    justify-content: flex-end;
+}
+/* form-group labels RTL */
+.arabic-section .form-group label { text-align: right; display: block; }
+.arabic-section .form-group input,
+.arabic-section .form-group textarea { text-align: right; }
 
 #criteriaTableElementArabic th:first-child,
 #criteriaTableElementArabic td:first-child {

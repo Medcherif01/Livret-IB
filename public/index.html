@@ -166,22 +166,22 @@
             </div>
         </section>
 
-        <!-- Arabic criteria section -->
-        <section id="communicationTableArabic" class="arabic-section" style="display:none; direction:rtl; text-align:right;">
-            <p class="section-title">🎯 المعايير الأولية (كفاءات مهارات التعلم)</p>
-            <p style="font-size:.82em;color:var(--gray-500);margin:0 0 12px;">
-                <strong>E</strong>: ممتاز | <strong>A</strong>: مكتسب | <strong>PA</strong>: مكتسب جزئياً | <strong>I</strong>: غير كافٍ
+        <!-- Arabic ATL section — full RTL -->
+        <section id="communicationTableArabic" class="arabic-section" dir="rtl" style="display:none; direction:rtl; text-align:right;">
+            <p class="section-title" style="flex-direction:row-reverse;">🎯 المعايير الأولية (كفاءات مهارات التعلم)</p>
+            <p style="font-size:.82em;color:var(--gray-500);margin:0 0 12px;text-align:right;">
+                <strong>I</strong>: غير كافٍ | <strong>PA</strong>: مكتسب جزئياً | <strong>A</strong>: مكتسب | <strong>E</strong>: ممتاز
             </p>
             <div style="overflow-x:auto;">
-            <table dir="rtl">
+            <table dir="rtl" style="direction:rtl;">
                 <thead>
                     <tr>
                         <th></th>
-                        <th>التواصل</th>
-                        <th>التعاون</th>
-                        <th>الإدارة الذاتية</th>
-                        <th>البحث</th>
                         <th>التفكير</th>
+                        <th>البحث</th>
+                        <th>الإدارة الذاتية</th>
+                        <th>التعاون</th>
+                        <th>التواصل</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -263,8 +263,8 @@
             </div>
         </section>
 
-        <!-- Arabic criteria table -->
-        <section id="criteriaTableArabic" class="arabic-section" style="display:none; direction:rtl; text-align:right;">
+        <!-- Arabic criteria table — full RTL -->
+        <section id="criteriaTableArabic" class="arabic-section" dir="rtl" style="display:none; direction:rtl; text-align:right;">
             <p class="section-title" style="flex-direction:row-reverse;">📊 معايير التقييم (المادة)</p>
 
             <div id="s2InfoBannerArabic" style="display:none;" class="s2-banner" dir="rtl">
@@ -316,14 +316,14 @@
             </div>
 
             <div class="form-group" style="margin-top:18px;">
-                <label>💬 التعليقات</label>
-                <textarea id="teacherCommentArabic" rows="4" placeholder="اكتب تعليقاتك هنا..." oninput="handleCommentChange(this.value)" dir="rtl" style="text-align:right;"></textarea>
+                <label style="display:block;text-align:right;">التعليقات 💬</label>
+                <textarea id="teacherCommentArabic" rows="4" placeholder="اكتب تعليقاتك هنا..." oninput="handleCommentChange(this.value)" dir="rtl" style="text-align:right;width:100%;"></textarea>
             </div>
             <div class="form-group">
-                <label>👤 اسم المعلم</label>
-                <input type="text" id="teacherNameArabic" placeholder="أدخل اسمك" onchange="handleTeacherNameChange(this.value)">
+                <label style="display:block;text-align:right;">اسم المعلم 👤</label>
+                <input type="text" id="teacherNameArabic" placeholder="أدخل اسمك" onchange="handleTeacherNameChange(this.value)" dir="rtl" style="text-align:right;">
             </div>
-            <div style="text-align:left; margin-top:20px;">
+            <div style="text-align:right; margin-top:20px;">
                 <button id="submitButtonArabic" onclick="submitForm()">✅ إرسال / تحديث</button>
             </div>
         </section>
